@@ -35,6 +35,13 @@
 
 #define __JSON_NULL_PRINT "null"
 
+#ifdef __JSON_FREE_DEBUG
+    #define __FREE_DEBUG_PRINT(MESSAGE) printf("\nFreeing %s\n", MESSAGE)
+#else
+    #define __FREE_DEBUG_PRINT(MESSAGE)
+#endif
+
+
 
 /*  
     ================================
@@ -183,7 +190,7 @@ String json_string_alloc(c_str string, size_t size) {
 
 void json_string_free(String json_string) {
     if (json_string) {
-        printf("\nFreeing string\n");
+        __FREE_DEBUG_PRINT("string");
         free(json_string->value);
         free(json_string);
     }
@@ -201,7 +208,7 @@ Integer json_integer_alloc(int64_t value) {
 
 void json_integer_free(Integer json_integer) {
     if (json_integer) {
-        printf("\nFreeing integer\n");
+        __FREE_DEBUG_PRINT("integer");
         free(json_integer);
     }
 }
@@ -218,7 +225,7 @@ Boolean json_boolean_alloc(bool value) {
 
 void json_boolean_free(Boolean json_boolean) {
     if (json_boolean) {
-        printf("\nFreeing boolean\n");
+        __FREE_DEBUG_PRINT("boolean");
         free(json_boolean);
     }
 }
@@ -235,7 +242,7 @@ Decimal json_decimal_alloc(double value) {
 
 void json_decimal_free(Decimal json_decimal) {
     if (json_decimal) {
-        printf("\nFreeing decimal\n");
+        __FREE_DEBUG_PRINT("decimal");
         free(json_decimal);
     }
 }
@@ -277,7 +284,7 @@ KeyValue* json_key_value_multi_alloc(size_t size) {
 
 void json_key_value_free(KeyValue key_value) {
     if (key_value) {
-        printf("\nFreeing key value\n");
+        __FREE_DEBUG_PRINT("key value");
         if (key_value->key)   free(key_value->key);
         if (key_value->value) json_object_type_free(key_value->value);
         free(key_value);
@@ -317,7 +324,7 @@ Object json_object_sized_alloc(size_t size) {
 
 void json_object_free(Object object) {
     if (object) {
-        printf("\nFreeing object\n");
+        __FREE_DEBUG_PRINT("object");
         if (object->pairs) {
             for (size_t i = 0; i < object->keys; i++)
                 json_key_value_free(object->pairs[i]);
@@ -360,7 +367,7 @@ Array json_array_alloc(ObjectType* objects, size_t size) {
 
 void json_array_free(Array array) {
     if (array) {
-        printf("\nFreeing array\n");
+        __FREE_DEBUG_PRINT("array");
         if (array->objects) {
             for (size_t i = 0; i < array->size; i++)
                 json_object_type_free(array->objects[i]);
@@ -551,6 +558,7 @@ void _ident_json_array_print(size_t depth, Array array) {
 
 void json_array_print(Array array) {
     _ident_json_array_print(0, array);
+    _printf_line("");
 }
 
 void _indent_json_object_print(size_t depth, Object object) {
@@ -585,6 +593,7 @@ void _indent_json_object_print(size_t depth, Object object) {
 
 void json_object_print(Object object) {
     _indent_json_object_print(0, object);
+    _printf_line("");
 }
 
 
@@ -624,6 +633,7 @@ void _ident_json_object_type_print(size_t depth, ObjectType object_type) {
 
 void json_object_type_print(ObjectType object_type) {
     _ident_json_object_type_print(0, object_type);
+    _printf_line("");
 }
 
 
