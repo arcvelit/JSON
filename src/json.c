@@ -24,6 +24,8 @@ int main()
     ObjectType obj = json_object_type_object_alloc(o);
     
     // Print and free
+    logger_stdout_init();
+
     json_object_type_print(obj);
     json_object_type_free(obj);
 

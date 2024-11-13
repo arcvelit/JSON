@@ -3,6 +3,7 @@
 
 #include <inttypes.h>
 #include <stdbool.h>
+#include <stdarg.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -30,13 +31,13 @@
 #define __JSON_STRING_PRINT_FMT "\"%s\""
 #define __JSON_BOOLEAN_TRUE_PRINT_FMT "true" 
 #define __JSON_BOOLEAN_FALSE_PRINT_FMT "false" 
+#define __JSON_NULL_PRINT "null"
 
 #define __JSON_BOOL_TO_STRING(b) ((b) ? __JSON_BOOLEAN_TRUE_PRINT_FMT : __JSON_BOOLEAN_FALSE_PRINT_FMT)
 
-#define __JSON_NULL_PRINT "null"
 
 #ifdef __JSON_FREE_DEBUG
-    #define __FREE_DEBUG_PRINT(MESSAGE) printf("\nFreeing %s\n", MESSAGE)
+    #define __FREE_DEBUG_PRINT(MESSAGE) printf("\nDEBUG: Freeing %s\n", MESSAGE)
 #else
     #define __FREE_DEBUG_PRINT(MESSAGE)
 #endif
@@ -77,7 +78,18 @@ typedef enum {
     JSON_OBJECT, JSON_ARRAY,
     // Atomic types
     JSON_INTEGER, JSON_DECIMAL, JSON_STRING, JSON_BOOLEAN
-} Type;
+} JsonType;
+
+typedef enum {
+    LOGGER_STDOUT,
+    LOGGER_FILE
+} LoggerType;
+
+typedef struct {
+    LoggerType type;
+    FILE* stream;
+} Logger;
+
 
 /*  
     ================================
@@ -89,6 +101,47 @@ ObjectType* json_object_type_multi_alloc(size_t size);
 void json_object_type_free(ObjectType object_type);
 
 void _ident_json_object_type_print(size_t depth, ObjectType object_type);
+
+
+/*  
+    ================================
+     Logging    
+    ================================
+*/ 
+
+Logger* __json_logger = NULL;
+
+void logger_stdout_init() {
+    if (!__json_logger)
+        __json_logger = (Logger*)malloc(sizeof(Logger));
+    __json_logger->type = LOGGER_STDOUT;
+    __json_logger->stream = stdout;
+}
+
+int logger_file_init(const char *filename) {
+    if (!__json_logger)
+        __json_logger = (Logger*)malloc(sizeof(Logger));
+    __json_logger->type = LOGGER_FILE;
+    __json_logger->stream = fopen(filename, "w");
+    return __json_logger->stream ? 1 : 0;
+}
+
+void logger_file_close() {
+    if (__json_logger->type == LOGGER_FILE && __json_logger->stream) {
+        fclose(__json_logger->stream);
+        __json_logger->stream = NULL;
+    }
+}
+
+void _logger_logf(const char *message, ...) {
+    if (__json_logger && __json_logger->stream) {
+        va_list args;
+        va_start(args, message);
+        vfprintf(__json_logger->stream, message, args);
+        va_end(args);
+    }
+}
+
 
 
 /*  
@@ -130,7 +183,7 @@ struct _json_boolean {      /* JSON_BOOLEAN    */
 };
 
 struct _json_object_type {
-    Type type;
+    JsonType type;
     union {
         Array   array;
         Object  object;
@@ -504,96 +557,96 @@ void json_object_type_free(ObjectType object_type) {
 
 /* Print utils */
 
-void _printf_indent(size_t depth) {
-    while(depth-- > 0) printf(__JSON_TABULATION);
+void _logf_indent(size_t depth) {
+    while(depth-- > 0) _logger_logf(__JSON_TABULATION);
 }
 
-void _printf_line(const char* message) {
-    printf("%s\n", message);
+void _logf_line(const char* message) {
+    _logger_logf("%s\n", message);
 }
 
 /* Print objects */
 
 void json_integer_print(Integer integer) {
-    printf(__JSON_INTEGER_PRINT_FMT, integer->value);
+    _logger_logf(__JSON_INTEGER_PRINT_FMT, integer->value);
 }
 
 void json_decimal_print(Decimal decimal) {
-    printf(__JSON_DOUBLE_PRINT_FMT, decimal->value);
+    _logger_logf(__JSON_DOUBLE_PRINT_FMT, decimal->value);
 }
 
 void json_string_print(String string) {
-    printf(__JSON_STRING_PRINT_FMT, string->value);
+    _logger_logf(__JSON_STRING_PRINT_FMT, string->value);
 }
 
 void json_boolean_print(Boolean boolean) {
-    printf("%s", __JSON_BOOL_TO_STRING(boolean->value));
+    _logger_logf("%s", __JSON_BOOL_TO_STRING(boolean->value));
 }
 
 void _ident_json_array_print(size_t depth, Array array) {
-    printf(__JSON_ARRAY_OPEN);
+    _logger_logf(__JSON_ARRAY_OPEN);
     if (array->size == 0) {
-        printf(__JSON_ARRAY_CLOSE);
+        _logger_logf(__JSON_ARRAY_CLOSE);
         return;
     }
-    _printf_line("");
+    _logf_line("");
 
     for(size_t i = 0; i < array->size - 1; i++) {
         ObjectType ot = array->objects[i];
 
-        _printf_indent(depth+1);
+        _logf_indent(depth+1);
         _ident_json_object_type_print(depth+1, ot);
         if (array->size > 1)
-            _printf_line(__JSON_KEY_VALUE_SEPARATOR);
+            _logf_line(__JSON_KEY_VALUE_SEPARATOR);
     }
 
     ObjectType ot = array->objects[array->size-1];
-    _printf_indent(depth+1);
+    _logf_indent(depth+1);
     _ident_json_object_type_print(depth+1, ot);
 
-    _printf_line("");
-    _printf_indent(depth);
-    printf(__JSON_ARRAY_CLOSE);
+    _logf_line("");
+    _logf_indent(depth);
+    _logger_logf(__JSON_ARRAY_CLOSE);
 }
 
 void json_array_print(Array array) {
     _ident_json_array_print(0, array);
-    _printf_line("");
+    _logf_line("");
 }
 
 void _indent_json_object_print(size_t depth, Object object) {
-    printf(__JSON_OBJECT_OPEN);
+    _logger_logf(__JSON_OBJECT_OPEN);
     if (object->keys == 0) {
-        printf(__JSON_OBJECT_CLOSE);
+        _logger_logf(__JSON_OBJECT_CLOSE);
         return;
     }
-    _printf_line("");
+    _logf_line("");
 
     for(size_t i = 0; i < object->keys - 1; i++) {
         KeyValue kv = object->pairs[i];
 
-        _printf_indent(depth+1);
-        printf(__JSON_KEY_PRINT_FMT, kv->key);
-        printf(__JSON_KEY_TO_VALUE);
+        _logf_indent(depth+1);
+        _logger_logf(__JSON_KEY_PRINT_FMT, kv->key);
+        _logger_logf(__JSON_KEY_TO_VALUE);
         _ident_json_object_type_print(depth+1, kv->value);
         if (object->keys > 1)
-            _printf_line(__JSON_KEY_VALUE_SEPARATOR);
+            _logf_line(__JSON_KEY_VALUE_SEPARATOR);
     }
 
     KeyValue kv = object->pairs[object->keys-1];
-    _printf_indent(depth+1);
-    printf(__JSON_KEY_PRINT_FMT, kv->key);
-    printf(__JSON_KEY_TO_VALUE);
+    _logf_indent(depth+1);
+    _logger_logf(__JSON_KEY_PRINT_FMT, kv->key);
+    _logger_logf(__JSON_KEY_TO_VALUE);
     _ident_json_object_type_print(depth, kv->value);
 
-    _printf_line("");
-    _printf_indent(depth);
-    printf(__JSON_OBJECT_CLOSE);
+    _logf_line("");
+    _logf_indent(depth);
+    _logger_logf(__JSON_OBJECT_CLOSE);
 }
 
 void json_object_print(Object object) {
     _indent_json_object_print(0, object);
-    _printf_line("");
+    _logf_line("");
 }
 
 
@@ -618,7 +671,7 @@ void _ident_json_object_type_print(size_t depth, ObjectType object_type) {
         break;
 
         case JSON_NULL:
-            printf(__JSON_NULL_PRINT);
+            _logger_logf(__JSON_NULL_PRINT);
         break;
 
         case JSON_ARRAY:
@@ -633,7 +686,7 @@ void _ident_json_object_type_print(size_t depth, ObjectType object_type) {
 
 void json_object_type_print(ObjectType object_type) {
     _ident_json_object_type_print(0, object_type);
-    _printf_line("");
+    _logf_line("");
 }
 
 
