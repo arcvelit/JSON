@@ -43,7 +43,6 @@
 #endif
 
 
-
 /*  
     ================================
      Type defintions    
@@ -63,6 +62,8 @@ typedef _json_string*  String;
 typedef _json_integer* Integer;
 typedef _json_decimal* Decimal;
 typedef _json_boolean* Boolean;
+
+typedef struct _json_logger _json_logger;
 
 typedef struct _json_object_type    _json_object_type;
 typedef struct _json_key_value_pair _json_key_value_pair;
@@ -85,10 +86,10 @@ typedef enum {
     LOGGER_FILE
 } LoggerType;
 
-typedef struct {
+struct _json_logger {
     LoggerType type;
     FILE* stream;
-} Logger;
+};
 
 
 /*  
@@ -109,39 +110,38 @@ void _ident_json_object_type_print(size_t depth, ObjectType object_type);
     ================================
 */ 
 
-Logger* __json_logger = NULL;
+_json_logger* __json_global_logger = NULL;
 
 void logger_stdout_init() {
-    if (!__json_logger)
-        __json_logger = (Logger*)malloc(sizeof(Logger));
-    __json_logger->type = LOGGER_STDOUT;
-    __json_logger->stream = stdout;
+    if (!__json_global_logger)
+        __json_global_logger = (_json_logger*)malloc(sizeof(_json_logger));
+    __json_global_logger->type = LOGGER_STDOUT;
+    __json_global_logger->stream = stdout;
 }
 
 int logger_file_init(const char *filename) {
-    if (!__json_logger)
-        __json_logger = (Logger*)malloc(sizeof(Logger));
-    __json_logger->type = LOGGER_FILE;
-    __json_logger->stream = fopen(filename, "w");
-    return __json_logger->stream ? 1 : 0;
+    if (!__json_global_logger)
+        __json_global_logger = (_json_logger*)malloc(sizeof(_json_logger));
+    __json_global_logger->type = LOGGER_FILE;
+    __json_global_logger->stream = fopen(filename, "w");
+    return __json_global_logger->stream ? 1 : 0;
 }
 
 void logger_file_close() {
-    if (__json_logger->type == LOGGER_FILE && __json_logger->stream) {
-        fclose(__json_logger->stream);
-        __json_logger->stream = NULL;
+    if (__json_global_logger->type == LOGGER_FILE && __json_global_logger->stream) {
+        fclose(__json_global_logger->stream);
+        __json_global_logger->stream = NULL;
     }
 }
 
 void _logger_logf(const char *message, ...) {
-    if (__json_logger && __json_logger->stream) {
+    if (__json_global_logger && __json_global_logger->stream) {
         va_list args;
         va_start(args, message);
-        vfprintf(__json_logger->stream, message, args);
+        vfprintf(__json_global_logger->stream, message, args);
         va_end(args);
     }
 }
-
 
 
 /*  

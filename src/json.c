@@ -25,8 +25,8 @@ int main()
     
     // Print and free
     logger_stdout_init();
-
     json_object_type_print(obj);
+    
     json_object_type_free(obj);
 
     return EXIT_SUCCESS;
