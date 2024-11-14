@@ -22,7 +22,7 @@ int main()
 
     JSON object = json_array_alloc();
     json_push(object, json_integer_alloc(12));
-    json_push(object, json_string_alloc("Kingslayer"));
+    json_push(object, json_string_alloc("Smartass"));
 
     JSON obj = json_object_alloc();
     json_add_key_value(obj, "Louka", list);
@@ -31,8 +31,9 @@ int main()
     json_add_key_value(obj, "NULLS", list_nulls);
 
     // Print and free
-    logger_stdout_init();
-    json_log(obj);
+    Logger logger = {0};
+    logger_stdout_init(&logger);
+    json_log(&logger, obj);
 
     json_free(obj);
 

@@ -31,8 +31,10 @@ int main()
     json_add_key_value(obj, "NULLS", list_nulls);
 
     // Print and free
-    logger_stdout_init();
-    json_log(obj);
+        // Print and free
+    Logger logger = {0};
+    logger_stdout_init(&logger);
+    json_log(&logger, obj);
 
     json_free(obj);
 
