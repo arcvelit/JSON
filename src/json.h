@@ -107,6 +107,8 @@ void json_free(JSON json_wrap);
 
 void _ident_json_object_wrap_log(size_t depth, JSON json_wrap);
 
+void logger_file_close();
+
 
 /*  
     ================================
@@ -119,6 +121,7 @@ _json_logger* __json_global_logger = NULL;
 void logger_stdout_init() {
     if (!__json_global_logger)
         __json_global_logger = (_json_logger*)malloc(sizeof(_json_logger));
+    logger_file_close(); // RAII
     __json_global_logger->type = LOGGER_STDOUT;
     __json_global_logger->stream = stdout;
 }
@@ -126,6 +129,8 @@ void logger_stdout_init() {
 int logger_file_init(const c_str filename) {
     if (!__json_global_logger)
         __json_global_logger = (_json_logger*)malloc(sizeof(_json_logger));
+    logger_file_close(); // RAII
+
     __json_global_logger->type = LOGGER_FILE;
     __json_global_logger->stream = fopen(filename, "w");
     return __json_global_logger->stream ? 1 : 0;

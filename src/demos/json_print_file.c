@@ -35,7 +35,6 @@ int main()
         return EXIT_FAILURE;
 
     json_log(obj);
-    logger_file_close();
 
     json_free(obj);
 
