@@ -34,8 +34,8 @@ int main()
         // Print and free
     Logger logger = {0};
     logger_stdout_init(&logger);
-    json_log(&logger, obj);
 
+    json_log(&logger, obj);
     json_free(obj);
 
     return EXIT_SUCCESS;

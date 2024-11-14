@@ -20,21 +20,19 @@ int main()
     json_push(list, courses);
     json_push(list, json_decimal_alloc(32.3));
 
-    JSON object = json_array_alloc();
-    json_push(object, json_integer_alloc(12));
-    json_push(object, json_string_alloc("Smartass"));
+    JSON array = json_array_alloc();
+    json_push(array, json_integer_alloc(12));
+    json_push(array, json_string_alloc("Smartass"));
 
     JSON obj = json_object_alloc();
     json_add_key_value(obj, "Louka", list);
-    json_add_key_value(obj, "Razvan", object);
+    json_add_key_value(obj, "Razvan", array);
     json_add_key_value(obj, "William", json_boolean_alloc(true));
     json_add_key_value(obj, "NULLS", list_nulls);
 
     // Print and free
     Logger logger = {0};
     logger_stdout_init(&logger);
-    json_log(&logger, obj);
-
     json_free(obj);
 
     return EXIT_SUCCESS;

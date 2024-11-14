@@ -125,9 +125,6 @@ void _indent_json_object_wrap_log(Logger* logger, size_t depth, JSON json_wrap);
     ================================
 */ 
 
-
-// TODO: Remove global logger
-
 void logger_stdout_init(Logger* logger) {
     logger->type = LOGGER_STDOUT;
     logger->stream = stdout;
@@ -145,16 +142,6 @@ void logger_file_close(Logger* logger) {
         logger->stream = NULL;
     }
 }
-
-void _logger_logf(Logger* logger, const c_str message, ...) {
-    if (logger && logger->stream) {
-        va_list args;
-        va_start(args, message);
-        vfprintf(logger->stream, message, args);
-        va_end(args);
-    }
-}
-
 
 /*  
     ================================
@@ -577,12 +564,34 @@ void json_push(JSON json_wrap, JSON value) {
     ar->objects[ar->size++] = value;
 }
 
+void json_foreach(JSON json_wrap, void (*func)(JSON)) {
+    if(!___TYPE_GUARD(json_wrap, JSON_ARRAY, __LINE__)) return;
+    
+    va_list args;
+    va_start(args, func);
+
+    _Array ar = json_wrap->array;
+    for(size_t i = 0; i < ar->size; i++)
+        func(ar->objects[i]);
+
+    va_end(args);
+}
+
 
 /*  
     ================================
      Logging cont'd   
     ================================
 */ 
+
+void _logger_logf(Logger* logger, const c_str message, ...) {
+    if (logger && logger->stream) {
+        va_list args;
+        va_start(args, message);
+        vfprintf(logger->stream, message, args);
+        va_end(args);
+    }
+}
 
 void _logf_indent(Logger* logger, size_t depth) {
     while(depth-- > 0) _logger_logf(logger, __JSON_TABULATION);
