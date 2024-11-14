@@ -15,6 +15,8 @@
     ================================
 */ 
 
+#define __JSON_MULTIOBJECT_INITIAL_CAP 2
+
 #define __JSON_OBJECT_OPEN "{"
 #define __JSON_OBJECT_CLOSE "}"
 #define __JSON_ARRAY_OPEN "["
@@ -56,38 +58,37 @@ typedef struct _json_integer _json_integer;
 typedef struct _json_decimal _json_decimal;
 typedef struct _json_boolean _json_boolean;
 
-typedef _json_array*   Array;
-typedef _json_object*  Object;
-typedef _json_string*  String;
-typedef _json_integer* Integer;
-typedef _json_decimal* Decimal;
-typedef _json_boolean* Boolean;
-
 typedef struct _json_logger _json_logger;
-
 typedef struct _json_object_wrap    _json_object_wrap;
 typedef struct _json_key_value_pair _json_key_value_pair;
 
-typedef _json_object_wrap*    JSON;
-typedef _json_key_value_pair* KeyValue;
+typedef _json_array*   _Array;
+typedef _json_object*  _Object;
+typedef _json_string*  _String;
+typedef _json_integer* _Integer;
+typedef _json_decimal* _Decimal;
+typedef _json_boolean* _Boolean;
+
+typedef _json_key_value_pair* _KeyValue;
 
 typedef char* c_str;
+typedef _json_object_wrap*    JSON;
 
 typedef enum {
     JSON_NULL,
     // Header types
     JSON_OBJECT, JSON_ARRAY,
-    // Atomic types
+    // Primitive types
     JSON_INTEGER, JSON_DECIMAL, JSON_STRING, JSON_BOOLEAN
 } JSONType;
 
 typedef enum {
     LOGGER_STDOUT,
     LOGGER_FILE
-} LoggerType;
+} _LoggerType;
 
 struct _json_logger {
-    LoggerType type;
+    _LoggerType type;
     FILE* stream;
 };
 
@@ -100,7 +101,8 @@ struct _json_logger {
 
 
 // TODO: ADD ALL OF THEM
-JSON* _json_OBJ_multi_alloc(size_t size);
+JSON*   _json_OBJ_multi_alloc(size_t size);
+_KeyValue* _json_KV_multi_alloc(size_t size);
 void json_free(JSON json_wrap);
 
 void _ident_json_object_wrap_log(size_t depth, JSON json_wrap);
@@ -121,7 +123,7 @@ void logger_stdout_init() {
     __json_global_logger->stream = stdout;
 }
 
-int logger_file_init(const char *filename) {
+int logger_file_init(const c_str filename) {
     if (!__json_global_logger)
         __json_global_logger = (_json_logger*)malloc(sizeof(_json_logger));
     __json_global_logger->type = LOGGER_FILE;
@@ -136,7 +138,7 @@ void logger_file_close() {
     }
 }
 
-void _logger_logf(const char *message, ...) {
+void _logger_logf(const c_str message, ...) {
     if (__json_global_logger && __json_global_logger->stream) {
         va_list args;
         va_start(args, message);
@@ -154,45 +156,47 @@ void _logger_logf(const char *message, ...) {
 
 struct _json_key_value_pair {
     c_str   key;
-    JSON value;
+    JSON    value;
 };
 
-struct _json_object {       /* JSON_OBJECT  */
+struct _json_object {       /* JSON_OBJECT  MULTIOBJECT */
     size_t      keys;
-    KeyValue*   pairs;
+    _KeyValue*  pairs;
+    size_t      _capacity;
 };
 
-struct _json_array {        /* JSON_ARRAY   */
+struct _json_array {        /* JSON_ARRAY   MULTIOBJECT */
     size_t  size;
-    JSON* objects;
+    JSON*   objects;
+    size_t  _capacity;
 };
 
-struct _json_string {       /* JSON_STRING  */
+struct _json_string {       /* JSON_STRING  PRIMITIVE   */
     c_str   value;
     size_t  size;
 };
 
-struct _json_integer {      /* JSON_INTEGER */
+struct _json_integer {      /* JSON_INTEGER PRIMITIVE   */
     int64_t value;
 };
 
-struct _json_decimal {      /* JSON_DOUBLE  */
+struct _json_decimal {      /* JSON_DOUBLE  PRIMITIVE   */
     double  value;
 };
 
-struct _json_boolean {      /* JSON_BOOLEAN    */
-    bool value;
+struct _json_boolean {      /* JSON_BOOLEAN PRIMITIVE   */
+    bool    value;
 };
 
 struct _json_object_wrap {
     JSONType type;
     union {
-        Array   array;
-        Object  object;
-        String  string;
-        Integer integer;
-        Decimal decimal;
-        Boolean boolean;
+        _Array   array;
+        _Object  object;
+        _String  string;
+        _Integer integer;
+        _Decimal decimal;
+        _Boolean boolean;
     };
 };
 
@@ -203,39 +207,49 @@ struct _json_object_wrap {
     ================================
 */ 
 
-/* Memory allocation guards */
+/* Memory allocation guards: truthy if condition is satisfied */
 
-#define __ALLOC_FAILED_GUARD(ptr, line) \
-    if (!(ptr)) { \
-        fprintf(stderr, "Memory allocation failed for %s at %s:%d\n", #ptr, __FILE__, line); \
-        return NULL; \
+void* __ALLOC_FAILED_GUARD(void* ptr, size_t line) {
+    if (!(ptr)) {
+        fprintf(stderr, "Memory allocation failed at %s:%d\n", __FILE__, line);
+        return NULL;
     }
-
-#define ___ALLOC_FAILED_GUARD_FREE(ptr, cleanup, line) \
-    if (!(ptr)) { \
-        fprintf(stderr, "Memory allocation failed for %s at %s:%d\n", #ptr, __FILE__, line); \
-        free(cleanup); \
-        return NULL; \
-    }
-
-/* String alloc and free */
-
-
-String _json_STR_empty_alloc() {
-    String new_string = (String)malloc(sizeof(_json_string));
-    __ALLOC_FAILED_GUARD(new_string, __LINE__);
-
-    new_string->size = 0;
-    new_string->value = NULL;
-    return new_string;
+    return ptr;
 }
 
-String _json_STR_alloc(c_str string, size_t size) {
-    String new_string = (String)malloc(sizeof(_json_string));
-    __ALLOC_FAILED_GUARD(new_string, __LINE__);
+void* __ALLOC_FAILED_GUARD_FREE(void* ptr, void* cleanup, size_t line) {
+    if (!(ptr)) {
+        fprintf(stderr, "Memory allocation failed at %s:%d\n", __FILE__, line);
+        free(cleanup);
+        return NULL;
+    }
+    return ptr;
+}
+
+void* __ALLOC_FAILED_MULTIOBJECT_GUARD(void* ptr, size_t line) {
+    if (!(ptr)) {
+        fprintf(stderr, "Memory reallocation failed at %s:%d\n", __FILE__, line);
+    }
+    return ptr;
+}
+
+void* ___TYPE_GUARD(JSON ptr, JSONType type, size_t line) {
+    if (!(ptr && ptr->type == type)) {
+        fprintf(stderr, "Type guard failed at %s:%d\n", __FILE__, line);
+        return NULL;
+    }
+    return ptr;
+}
+
+
+/* _String alloc and free */
+
+_String _json_STR_alloc(c_str string, size_t size) {
+    _String new_string = (_String)malloc(sizeof(_json_string));
+    if(!__ALLOC_FAILED_GUARD(new_string, __LINE__)) return NULL;
 
     new_string->value = (c_str)malloc(size + 1);
-    ___ALLOC_FAILED_GUARD_FREE(new_string->value, new_string, __LINE__);
+    if(!__ALLOC_FAILED_GUARD_FREE(new_string->value, new_string, __LINE__)) return NULL;
 
     strncpy(new_string->value, string, size);
     new_string->value[size] = '\0';
@@ -243,7 +257,7 @@ String _json_STR_alloc(c_str string, size_t size) {
     return new_string;
 }
 
-void _json_STR_free(String json_string) {
+void _json_STR_free(_String json_string) {
     if (json_string) {
         __FREE_DEBUG_PRINT("string");
         free(json_string->value);
@@ -251,93 +265,76 @@ void _json_STR_free(String json_string) {
     }
 }
 
-/* Integer alloc and free */
 
-Integer _json_INT_alloc(int64_t value) {
-    Integer new_integer = (Integer)malloc(sizeof(_json_integer));
-    __ALLOC_FAILED_GUARD(new_integer, __LINE__);
+/* _Integer alloc and free */
+
+_Integer _json_INT_alloc(int64_t value) {
+    _Integer new_integer = (_Integer)malloc(sizeof(_json_integer));
+    if(!__ALLOC_FAILED_GUARD(new_integer, __LINE__)) return NULL;
 
     new_integer->value = value;
     return new_integer;
 }
 
-void _json_INT_free(Integer json_integer) {
+void _json_INT_free(_Integer json_integer) {
     if (json_integer) {
         __FREE_DEBUG_PRINT("integer");
         free(json_integer);
     }
 }
 
-/* Boolean alloc and free */
 
-Boolean _json_BOOL_alloc(bool value) {
-    Boolean new_boolean = (Boolean)malloc(sizeof(_json_boolean));
-    __ALLOC_FAILED_GUARD(new_boolean, __LINE__);
+/* _Boolean alloc and free */
+
+_Boolean _json_BOOL_alloc(bool value) {
+    _Boolean new_boolean = (_Boolean)malloc(sizeof(_json_boolean));
+    if(!__ALLOC_FAILED_GUARD(new_boolean, __LINE__)) return NULL;
 
     new_boolean->value = value;
     return new_boolean;
 }
 
-void _json_BOOL_free(Boolean json_boolean) {
+void _json_BOOL_free(_Boolean json_boolean) {
     if (json_boolean) {
         __FREE_DEBUG_PRINT("boolean");
         free(json_boolean);
     }
 }
 
-/* Decimal alloc and free */
 
-Decimal _json_DEC_alloc(double value) {
-    Decimal new_decimal = (Decimal)malloc(sizeof(_json_decimal));
-    __ALLOC_FAILED_GUARD(new_decimal, __LINE__);
+/* _Decimal alloc and free */
+
+_Decimal _json_DEC_alloc(double value) {
+    _Decimal new_decimal = (_Decimal)malloc(sizeof(_json_decimal));
+    if(!__ALLOC_FAILED_GUARD(new_decimal, __LINE__)) return NULL;
 
     new_decimal->value = value;
     return new_decimal;
 }
 
-void _json_DEC_free(Decimal json_decimal) {
+void _json_DEC_free(_Decimal json_decimal) {
     if (json_decimal) {
         __FREE_DEBUG_PRINT("decimal");
         free(json_decimal);
     }
 }
 
-/* Generic decimal and integer free */
 
-void _json_NUM_free(void* json_numeric) {
-    if (json_numeric) {
-        free(json_numeric);
-    }
-}
+/* _KeyValue alloc and free */
 
-/* KeyValue alloc and free */
+_KeyValue _json_KV_alloc(c_str key, size_t key_len, JSON json_wrap) {
+    _KeyValue new_key_value = (_KeyValue)malloc(sizeof(_json_key_value_pair));
+    if(!__ALLOC_FAILED_GUARD(new_key_value, __LINE__)) return NULL;
 
-KeyValue _json_KV_empty_alloc() {
-    KeyValue new_key_value = (KeyValue)malloc(sizeof(_json_key_value_pair));
-    __ALLOC_FAILED_GUARD(new_key_value, __LINE__);
+    new_key_value->key = (c_str)malloc(key_len + 1);
+    if(!__ALLOC_FAILED_GUARD_FREE(new_key_value->key, new_key_value, __LINE__)) return NULL;
 
-    new_key_value->key = NULL;
-    new_key_value->value = NULL;
-    return new_key_value;
-}
-
-KeyValue _json_KV_alloc(c_str key, JSON json_wrap) {
-    KeyValue new_key_value = (KeyValue)malloc(sizeof(_json_key_value_pair));
-    __ALLOC_FAILED_GUARD(new_key_value, __LINE__);
-
-    new_key_value->key = key;
+    strncpy(new_key_value->key, key, key_len);
     new_key_value->value = json_wrap;
     return new_key_value;
 }
 
-KeyValue* _json_KV_multi_alloc(size_t size) {
-    KeyValue* new_multi_key_value = (KeyValue*)malloc(sizeof(_json_key_value_pair*) * size);
-    __ALLOC_FAILED_GUARD(new_multi_key_value, __LINE__);
-
-    return new_multi_key_value;
-}
-
-void _json_KV_free(KeyValue key_value) {
+void _json_KV_free(_KeyValue key_value) {
     if (key_value) {
         __FREE_DEBUG_PRINT("key value");
         if (key_value->key)   free(key_value->key);
@@ -346,38 +343,29 @@ void _json_KV_free(KeyValue key_value) {
     }
 }
 
-/* Object alloc and free */
 
-Object _json_OBJ_empty_alloc() {
-    Object new_object = (Object)malloc(sizeof(_json_object));
-    __ALLOC_FAILED_GUARD(new_object, __LINE__);
+/* _Object alloc and free */
 
+_Object _json_OBJ_alloc() {
+    _Object new_object = (_Object)malloc(sizeof(_json_object));
+    if(!__ALLOC_FAILED_GUARD(new_object, __LINE__)) return NULL;
+
+    new_object->pairs = _json_KV_multi_alloc(__JSON_MULTIOBJECT_INITIAL_CAP);
+    if(!__ALLOC_FAILED_GUARD_FREE(new_object->pairs, new_object, __LINE__)) return NULL;
+
+    new_object->_capacity = __JSON_MULTIOBJECT_INITIAL_CAP;
     new_object->keys = 0;
-    new_object->pairs = NULL;
     return new_object;
 }
 
-Object _json_OBJ_alloc(KeyValue* key_values, size_t keys) {
-    Object new_object = (Object)malloc(sizeof(_json_object));
-    __ALLOC_FAILED_GUARD(new_object, __LINE__);
+_KeyValue* _json_KV_multi_alloc(size_t size) {
+    _KeyValue* new_multi_key_value = (_KeyValue*)malloc(sizeof(_KeyValue) * size);
+    if(!__ALLOC_FAILED_GUARD(new_multi_key_value, __LINE__)) return NULL;
 
-    new_object->keys = keys;
-    new_object->pairs = key_values;
-    return new_object;
+    return new_multi_key_value;
 }
 
-Object _json_OBJ_sized_alloc(size_t size) {
-    Object new_object = (Object)malloc(sizeof(_json_object));
-    __ALLOC_FAILED_GUARD(new_object, __LINE__);
-
-    new_object->keys = size;
-    new_object->pairs = _json_KV_multi_alloc(size);
-    ___ALLOC_FAILED_GUARD_FREE(new_object->pairs, new_object, __LINE__);
-
-    return new_object;
-}
-
-void _json_OBJ_free(Object object) {
+void _json_OBJ_free(_Object object) {
     if (object) {
         __FREE_DEBUG_PRINT("object");
         if (object->pairs) {
@@ -389,38 +377,29 @@ void _json_OBJ_free(Object object) {
     }
 }
 
-/* Array alloc and free */
 
-Array _json_ARR_empty_alloc() {
-    Array new_array = (Array)malloc(sizeof(_json_array));
-    __ALLOC_FAILED_GUARD(new_array, __LINE__);
+/* _Array alloc and free */
 
+_Array _json_ARR_alloc() {
+    _Array new_array = (_Array)malloc(sizeof(_json_array));
+    if(!__ALLOC_FAILED_GUARD(new_array, __LINE__)) return NULL;
+
+    new_array->objects = _json_OBJ_multi_alloc(__JSON_MULTIOBJECT_INITIAL_CAP);
+    if(!__ALLOC_FAILED_GUARD_FREE(new_array->objects, new_array, __LINE__)) return NULL;
+
+    new_array->_capacity = __JSON_MULTIOBJECT_INITIAL_CAP;
     new_array->size = 0;
-    new_array->objects = NULL;
     return new_array;
 }
 
-Array _json_ARR_sized_alloc(size_t size) {
-    Array new_array = (Array)malloc(sizeof(_json_array));
-    __ALLOC_FAILED_GUARD(new_array, __LINE__);
+JSON* _json_OBJ_multi_alloc(size_t size) {
+    JSON* new_multi_object = (JSON*)malloc(sizeof(JSON) * size);
+    if(!__ALLOC_FAILED_GUARD(new_multi_object, __LINE__)) return NULL;
 
-    new_array->size = size;
-    new_array->objects = _json_OBJ_multi_alloc(size);
-    ___ALLOC_FAILED_GUARD_FREE(new_array->objects, new_array, __LINE__);
-
-    return new_array;
+    return new_multi_object;
 }
 
-Array _json_ARR_alloc(JSON* objects, size_t size) {
-    Array new_array = (Array)malloc(sizeof(_json_array));
-    __ALLOC_FAILED_GUARD(new_array, __LINE__);
-
-    new_array->size = size;
-    new_array->objects = objects;
-    return new_array;
-}
-
-void _json_ARR_free(Array array) {
+void _json_ARR_free(_Array array) {
     if (array) {
         __FREE_DEBUG_PRINT("array");
         if (array->objects) {
@@ -436,83 +415,77 @@ void _json_ARR_free(Array array) {
 
 JSON json_null_alloc() {
     JSON new_json_wrap = (JSON)malloc(sizeof(_json_object_wrap));
-    __ALLOC_FAILED_GUARD(new_json_wrap, __LINE__);
+    if(!__ALLOC_FAILED_GUARD(new_json_wrap, __LINE__)) return  NULL;
 
     new_json_wrap->type = JSON_NULL;
     new_json_wrap->object = NULL;
     return new_json_wrap;
 }
 
-
 JSON json_integer_alloc(uint64_t integer) {
     JSON new_json_wrap = (JSON)malloc(sizeof(_json_object_wrap));
-    __ALLOC_FAILED_GUARD(new_json_wrap, __LINE__);
+    if(!__ALLOC_FAILED_GUARD(new_json_wrap, __LINE__)) return NULL;
 
     new_json_wrap->type = JSON_INTEGER;
     new_json_wrap->integer = _json_INT_alloc(integer);
+    if(!__ALLOC_FAILED_GUARD_FREE(new_json_wrap->integer, new_json_wrap, __LINE__)) return NULL;
+
     return new_json_wrap;
 }
 
 JSON json_decimal_alloc(double decimal) {
     JSON new_json_wrap = (JSON)malloc(sizeof(_json_object_wrap));
-    __ALLOC_FAILED_GUARD(new_json_wrap, __LINE__);
+    if(!__ALLOC_FAILED_GUARD(new_json_wrap, __LINE__)) return NULL;
 
     new_json_wrap->type = JSON_DECIMAL;
     new_json_wrap->decimal = _json_DEC_alloc(decimal);
+    if(!__ALLOC_FAILED_GUARD_FREE(new_json_wrap->decimal, new_json_wrap, __LINE__)) return NULL;
+
     return new_json_wrap;
 }
 
 JSON json_boolean_alloc(bool boolean) {
     JSON new_json_wrap = (JSON)malloc(sizeof(_json_object_wrap));
-    __ALLOC_FAILED_GUARD(new_json_wrap, __LINE__);
+    if(!__ALLOC_FAILED_GUARD(new_json_wrap, __LINE__)) return NULL;
 
     new_json_wrap->type = JSON_BOOLEAN;
     new_json_wrap->boolean = _json_BOOL_alloc(boolean);
+    if(!__ALLOC_FAILED_GUARD_FREE(new_json_wrap->boolean, new_json_wrap, __LINE__)) return NULL;
+
     return new_json_wrap;
 }
 
-JSON json_string_alloc(c_str string, size_t size) {
+JSON json_string_alloc(c_str string) {
     JSON new_json_wrap = (JSON)malloc(sizeof(_json_object_wrap));
-    __ALLOC_FAILED_GUARD(new_json_wrap, __LINE__);
+    if(!__ALLOC_FAILED_GUARD(new_json_wrap, __LINE__)) return NULL;
+
+    new_json_wrap->string = _json_STR_alloc(string, strlen(string));
+    if(!__ALLOC_FAILED_GUARD_FREE(new_json_wrap->string, new_json_wrap, __LINE__)) return NULL;
 
     new_json_wrap->type = JSON_STRING;
-    new_json_wrap->string = _json_STR_alloc(string, size);
     return new_json_wrap;
 }
 
-JSON json_object_alloc(Object object) {
+JSON json_object_alloc() {
     JSON new_json_wrap = (JSON)malloc(sizeof(_json_object_wrap));
-    __ALLOC_FAILED_GUARD(new_json_wrap, __LINE__);
+    if(!__ALLOC_FAILED_GUARD(new_json_wrap, __LINE__)) return NULL;
+
+    new_json_wrap->object = _json_OBJ_alloc();
+    if(!__ALLOC_FAILED_GUARD_FREE(new_json_wrap->object, new_json_wrap, __LINE__)) return NULL;
 
     new_json_wrap->type = JSON_OBJECT;
-    new_json_wrap->object = object;
     return new_json_wrap;
 }
 
-JSON json_empty_object_alloc() {
+JSON json_array_alloc() {
     JSON new_json_wrap = (JSON)malloc(sizeof(_json_object_wrap));
-    __ALLOC_FAILED_GUARD(new_json_wrap, __LINE__);
+    if(!__ALLOC_FAILED_GUARD(new_json_wrap, __LINE__)) return NULL;
 
-    new_json_wrap->type = JSON_OBJECT;
-    new_json_wrap->object = _json_OBJ_empty_alloc();
-    ___ALLOC_FAILED_GUARD_FREE(new_json_wrap->object, new_json_wrap, __LINE__);
-
-    return new_json_wrap;
-}
-JSON json_array_alloc(Array array) {
-    JSON new_json_wrap = (JSON)malloc(sizeof(_json_object_wrap));
-    __ALLOC_FAILED_GUARD(new_json_wrap, __LINE__);
+    new_json_wrap->array = _json_ARR_alloc();
+    if(!__ALLOC_FAILED_GUARD_FREE(new_json_wrap->array, new_json_wrap, __LINE__)) return NULL;
 
     new_json_wrap->type = JSON_ARRAY;
-    new_json_wrap->array = array;
     return new_json_wrap;
-}
-
-JSON* _json_OBJ_multi_alloc(size_t size) {
-    JSON* new_multi_object = (JSON*)malloc(sizeof(_json_object_wrap*) * size);
-    __ALLOC_FAILED_GUARD(new_multi_object, __LINE__);
-
-    return new_multi_object;
 }
 
 void json_free(JSON json_wrap) {
@@ -543,7 +516,7 @@ void json_free(JSON json_wrap) {
             break;
 
             case JSON_NULL:
-            // object->(type) object value is null
+                __FREE_DEBUG_PRINT("null");
             break;
 
             default:
@@ -558,11 +531,43 @@ void json_free(JSON json_wrap) {
 
 /*  
     ================================
-     JSON Utilities    
+     JSON API    
     ================================
 */ 
 
+void json_add_key_value(JSON json_wrap, c_str key, JSON value) {
+    if(!___TYPE_GUARD(json_wrap, JSON_OBJECT, __LINE__)) return;
 
+    _Object ob = json_wrap->object;
+
+    if (ob->keys == ob->_capacity) {
+        size_t new_capacity = ob->_capacity * 2;
+        _KeyValue* new_pairs = realloc(ob->pairs, new_capacity * sizeof(_KeyValue));
+        if(!__ALLOC_FAILED_MULTIOBJECT_GUARD(new_pairs, __LINE__)) return;
+
+        ob->_capacity = new_capacity;
+        ob->pairs = new_pairs;
+    }
+
+    ob->pairs[ob->keys++] = _json_KV_alloc(key, strlen(key), value);    
+}
+
+void json_push(JSON json_wrap, JSON value) {
+    if(!___TYPE_GUARD(json_wrap, JSON_ARRAY, __LINE__)) return;
+
+    _Array ar = json_wrap->array;
+
+    if (ar->size == ar->_capacity) {
+        size_t new_capacity = ar->_capacity * 2;
+        JSON* new_objects = realloc(ar->objects, new_capacity * sizeof(JSON));
+        if(!__ALLOC_FAILED_MULTIOBJECT_GUARD(new_objects, __LINE__)) return;
+
+        ar->_capacity = new_capacity;
+        ar->objects = new_objects;
+    }
+
+    ar->objects[ar->size++] = value;
+}
 
 
 /*  
@@ -571,35 +576,33 @@ void json_free(JSON json_wrap) {
     ================================
 */ 
 
-/* Print utils */
-
 void _logf_indent(size_t depth) {
     while(depth-- > 0) _logger_logf(__JSON_TABULATION);
 }
 
-void _logf_line(const char* message) {
+void _logf_line(const c_str message) {
     _logger_logf("%s\n", message);
 }
 
 /* Print objects */
 
-void _json_INT_log(Integer integer) {
+void _json_INT_log(_Integer integer) {
     _logger_logf(__JSON_INTEGER_PRINT_FMT, integer->value);
 }
 
-void _json_DEC_log(Decimal decimal) {
+void _json_DEC_log(_Decimal decimal) {
     _logger_logf(__JSON_DOUBLE_PRINT_FMT, decimal->value);
 }
 
-void _json_STR_log(String string) {
+void _json_STR_log(_String string) {
     _logger_logf(__JSON_STRING_PRINT_FMT, string->value);
 }
 
-void json_BOOL_log(Boolean boolean) {
+void _json_BOOL_log(_Boolean boolean) {
     _logger_logf("%s", __JSON_BOOL_TO_STRING(boolean->value));
 }
 
-void _ident_json_array_log(size_t depth, Array array) {
+void _ident_json_ARR_log(size_t depth, _Array array) {
     _logger_logf(__JSON_ARRAY_OPEN);
     if (array->size == 0) {
         _logger_logf(__JSON_ARRAY_CLOSE);
@@ -625,12 +628,7 @@ void _ident_json_array_log(size_t depth, Array array) {
     _logger_logf(__JSON_ARRAY_CLOSE);
 }
 
-void json_array_log(Array array) {
-    _ident_json_array_log(0, array);
-    _logf_line("");
-}
-
-void _indent_json_object_log(size_t depth, Object object) {
+void _indent_json_OBJ_log(size_t depth, _Object object) {
     _logger_logf(__JSON_OBJECT_OPEN);
     if (object->keys == 0) {
         _logger_logf(__JSON_OBJECT_CLOSE);
@@ -639,7 +637,7 @@ void _indent_json_object_log(size_t depth, Object object) {
     _logf_line("");
 
     for(size_t i = 0; i < object->keys - 1; i++) {
-        KeyValue kv = object->pairs[i];
+        _KeyValue kv = object->pairs[i];
 
         _logf_indent(depth+1);
         _logger_logf(__JSON_KEY_PRINT_FMT, kv->key);
@@ -649,20 +647,15 @@ void _indent_json_object_log(size_t depth, Object object) {
             _logf_line(__JSON_KEY_VALUE_SEPARATOR);
     }
 
-    KeyValue kv = object->pairs[object->keys-1];
+    _KeyValue kv = object->pairs[object->keys-1];
     _logf_indent(depth+1);
     _logger_logf(__JSON_KEY_PRINT_FMT, kv->key);
     _logger_logf(__JSON_KEY_TO_VALUE);
-    _ident_json_object_wrap_log(depth, kv->value);
+    _ident_json_object_wrap_log(depth+1, kv->value);
 
     _logf_line("");
     _logf_indent(depth);
     _logger_logf(__JSON_OBJECT_CLOSE);
-}
-
-void json_object_log(Object object) {
-    _indent_json_object_log(0, object);
-    _logf_line("");
 }
 
 void _ident_json_object_wrap_log(size_t depth, JSON json_wrap) {
@@ -678,7 +671,7 @@ void _ident_json_object_wrap_log(size_t depth, JSON json_wrap) {
         break;
 
         case JSON_BOOLEAN:
-            json_BOOL_log(json_wrap->boolean);
+            _json_BOOL_log(json_wrap->boolean);
         break;
 
         case JSON_STRING:
@@ -690,11 +683,11 @@ void _ident_json_object_wrap_log(size_t depth, JSON json_wrap) {
         break;
 
         case JSON_ARRAY:
-            _ident_json_array_log(depth, json_wrap->array);
+            _ident_json_ARR_log(depth, json_wrap->array);
         break;
 
         case JSON_OBJECT:
-            _indent_json_object_log(depth, json_wrap->object);
+            _indent_json_OBJ_log(depth, json_wrap->object);
         break;
     }
 }
