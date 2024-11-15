@@ -31,11 +31,11 @@ int main()
     json_add_key_value(obj, "NULLS", list_nulls);
 
     // Print and free
-    Logger logger = {0};
-    if (!logger_file_init(&logger, "data.json")) 
+    Writer writer = {0};
+    if (!writer_file_init(&writer, "data.json")) 
         return EXIT_FAILURE;
 
-    json_log(&logger, obj);
+    json_write(&writer, obj);
     json_free(obj);
 
     return EXIT_SUCCESS;

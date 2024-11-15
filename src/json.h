@@ -60,7 +60,7 @@ typedef struct _json_boolean _json_boolean;
 
 typedef struct _json_key_value_pair _json_key_value_pair;
 typedef struct _json_object_wrap    _json_object_wrap;
-typedef struct _json_logger         _json_logger;
+typedef struct _json_writer         _json_writer;
 
 typedef _json_object    *_Object;
 typedef _json_array     *_Array;
@@ -69,7 +69,7 @@ typedef _json_integer   *_Integer;
 typedef _json_decimal   *_Decimal;
 typedef _json_boolean   *_Boolean;
 
-typedef _json_logger    Logger;
+typedef _json_writer    Writer;
 
 typedef _json_key_value_pair *_KeyValue;
 
@@ -87,10 +87,10 @@ typedef enum {
 typedef enum {
     LOGGER_STDOUT,
     LOGGER_FILE
-} _LoggerType;
+} _WriterType;
 
-struct _json_logger {
-    _LoggerType type;
+struct _json_writer {
+    _WriterType type;
     FILE* stream;
 };
 
@@ -104,18 +104,18 @@ struct _json_logger {
 
 // TODO: ADD ALL OF THEM
 
-void logger_stdout_init(Logger* logger);
-int logger_file_init(Logger* logger, const c_str filename);
-void logger_file_close(Logger* logger);
+void writer_stdout_init(Writer* writer);
+int  writer_file_init(Writer* writer, const c_str filename);
+void writer_file_close(Writer* writer);
 
-void _logger_logf(Logger* logger, const c_str message, ...);
-void _logf_indent(Logger* logger, size_t depth);
+void _writer_writef(Writer* writer, const c_str message, ...);
+void _writef_indent(Writer* writer, size_t depth);
 
 JSON*   _json_OBJ_multi_alloc(size_t size);
 _KeyValue* _json_KV_multi_alloc(size_t size);
 void json_free(JSON json_wrap);
 
-void _indent_json_object_wrap_log(Logger* logger, size_t depth, JSON json_wrap);
+void _indent_json_object_wrap_write(Writer* writer, size_t depth, JSON json_wrap);
 
 
 
@@ -125,21 +125,21 @@ void _indent_json_object_wrap_log(Logger* logger, size_t depth, JSON json_wrap);
     ================================
 */ 
 
-void logger_stdout_init(Logger* logger) {
-    logger->type = LOGGER_STDOUT;
-    logger->stream = stdout;
+void writer_stdout_init(Writer* writer) {
+    writer->type = LOGGER_STDOUT;
+    writer->stream = stdout;
 }
 
-int logger_file_init(Logger* logger, const c_str filename) {
-    logger->type = LOGGER_FILE;
-    logger->stream = fopen(filename, "w");
-    return logger->stream ? 1 : 0;
+int writer_file_init(Writer* writer, const c_str filename) {
+    writer->type = LOGGER_FILE;
+    writer->stream = fopen(filename, "w");
+    return writer->stream ? 1 : 0;
 }
 
-void logger_file_close(Logger* logger) {
-    if (logger->type == LOGGER_FILE && logger->stream) {
-        fclose(logger->stream);
-        logger->stream = NULL;
+void writer_file_close(Writer* writer) {
+    if (writer->type == LOGGER_FILE && writer->stream) {
+        fclose(writer->stream);
+        writer->stream = NULL;
     }
 }
 
@@ -150,8 +150,8 @@ void logger_file_close(Logger* logger) {
 */ 
 
 struct _json_key_value_pair {
-    c_str   key;
-    JSON    value;
+    c_str key;
+    JSON value;
 };
 
 struct _json_object {       /* JSON_OBJECT  MULTIOBJECT */
@@ -239,11 +239,11 @@ void* ___TYPE_GUARD(JSON ptr, JSONType type, size_t line) {
 
 /* _String alloc and free */
 
-_String _json_STR_alloc(c_str string, size_t size) {
+_String _json_STR_alloc(const c_str string, size_t size) {
     _String new_string = (_String)malloc(sizeof(_json_string));
     if(!__ALLOC_FAILED_GUARD(new_string, __LINE__)) return NULL;
 
-    new_string->value = (c_str)malloc(size + 1);
+    new_string->value = (const c_str)malloc(size + 1);
     if(!__ALLOC_FAILED_GUARD_FREE(new_string->value, new_string, __LINE__)) return NULL;
 
     strncpy(new_string->value, string, size);
@@ -317,7 +317,7 @@ void _json_DEC_free(_Decimal json_decimal) {
 
 /* _KeyValue alloc and free */
 
-_KeyValue _json_KV_alloc(c_str key, size_t key_len, JSON json_wrap) {
+_KeyValue _json_KV_alloc(const c_str key, size_t key_len, JSON json_wrap) {
     _KeyValue new_key_value = (_KeyValue)malloc(sizeof(_json_key_value_pair));
     if(!__ALLOC_FAILED_GUARD(new_key_value, __LINE__)) return NULL;
 
@@ -325,6 +325,7 @@ _KeyValue _json_KV_alloc(c_str key, size_t key_len, JSON json_wrap) {
     if(!__ALLOC_FAILED_GUARD_FREE(new_key_value->key, new_key_value, __LINE__)) return NULL;
 
     strncpy(new_key_value->key, key, key_len);
+    new_key_value->key[key_len] = '\0';
     new_key_value->value = json_wrap;
     return new_key_value;
 }
@@ -406,6 +407,7 @@ void _json_ARR_free(_Array array) {
     }
 }
 
+
 /* JSON alloc and free */
 
 JSON json_null_alloc() {
@@ -450,7 +452,7 @@ JSON json_boolean_alloc(bool boolean) {
     return new_json_wrap;
 }
 
-JSON json_string_alloc(c_str string) {
+JSON json_string_alloc(const c_str string) {
     JSON new_json_wrap = (JSON)malloc(sizeof(_json_object_wrap));
     if(!__ALLOC_FAILED_GUARD(new_json_wrap, __LINE__)) return NULL;
 
@@ -530,7 +532,7 @@ void json_free(JSON json_wrap) {
     ================================
 */ 
 
-void json_add_key_value(JSON json_wrap, c_str key, JSON value) {
+void json_add_key_value(JSON json_wrap, const c_str key, JSON value) {
     if(!___TYPE_GUARD(json_wrap, JSON_OBJECT, __LINE__)) return;
 
     _Object ob = json_wrap->object;
@@ -543,6 +545,11 @@ void json_add_key_value(JSON json_wrap, c_str key, JSON value) {
         ob->_capacity = new_capacity;
         ob->pairs = new_pairs;
     }
+
+    if (strcmp(key, "NULLS") == 0) {
+        printf("%s", key);
+    }
+
 
     ob->pairs[ob->keys++] = _json_KV_alloc(key, strlen(key), value);    
 }
@@ -567,14 +574,9 @@ void json_push(JSON json_wrap, JSON value) {
 void json_foreach(JSON json_wrap, void (*func)(JSON)) {
     if(!___TYPE_GUARD(json_wrap, JSON_ARRAY, __LINE__)) return;
     
-    va_list args;
-    va_start(args, func);
-
     _Array ar = json_wrap->array;
     for(size_t i = 0; i < ar->size; i++)
         func(ar->objects[i]);
-
-    va_end(args);
 }
 
 
@@ -584,134 +586,134 @@ void json_foreach(JSON json_wrap, void (*func)(JSON)) {
     ================================
 */ 
 
-void _logger_logf(Logger* logger, const c_str message, ...) {
-    if (logger && logger->stream) {
+void _writer_writef(Writer* writer, const c_str message, ...) {
+    if (writer && writer->stream) {
         va_list args;
         va_start(args, message);
-        vfprintf(logger->stream, message, args);
+        vfprintf(writer->stream, message, args);
         va_end(args);
     }
 }
 
-void _logf_indent(Logger* logger, size_t depth) {
-    while(depth-- > 0) _logger_logf(logger, __JSON_TABULATION);
+void _writef_indent(Writer* writer, size_t depth) {
+    while(depth-- > 0) _writer_writef(writer, __JSON_TABULATION);
 }
 
-void _logf_line(Logger* logger, const c_str message) {
-    _logger_logf(logger, "%s\n", message);
+void _writef_line(Writer* writer, const c_str message) {
+    _writer_writef(writer, "%s\n", message);
 }
 
 /* Print objects */
 
-void _json_INT_log(Logger* logger, _Integer integer) {
-    _logger_logf(logger, __JSON_INTEGER_PRINT_FMT, integer->value);
+void _json_INT_write(Writer* writer, _Integer integer) {
+    _writer_writef(writer, __JSON_INTEGER_PRINT_FMT, integer->value);
 }
 
-void _json_DEC_log(Logger* logger, _Decimal decimal) {
-    _logger_logf(logger, __JSON_DOUBLE_PRINT_FMT, decimal->value);
+void _json_DEC_write(Writer* writer, _Decimal decimal) {
+    _writer_writef(writer, __JSON_DOUBLE_PRINT_FMT, decimal->value);
 }
 
-void _json_STR_log(Logger* logger, _String string) {
-    _logger_logf(logger, __JSON_STRING_PRINT_FMT, string->value);
+void _json_STR_write(Writer* writer, _String string) {
+    _writer_writef(writer, __JSON_STRING_PRINT_FMT, string->value);
 }
 
-void _json_BOOL_log(Logger* logger, _Boolean boolean) {
-    _logger_logf(logger, "%s", __JSON_BOOL_TO_STRING(boolean->value));
+void _json_BOOL_write(Writer* writer, _Boolean boolean) {
+    _writer_writef(writer, "%s", __JSON_BOOL_TO_STRING(boolean->value));
 }
 
-void _indent_json_ARR_log(Logger* logger, size_t depth, _Array array) {
-    _logger_logf(logger, __JSON_ARRAY_OPEN);
+void _indent_json_ARR_write(Writer* writer, size_t depth, _Array array) {
+    _writer_writef(writer, __JSON_ARRAY_OPEN);
     if (array->size == 0) {
-        _logger_logf(logger, __JSON_ARRAY_CLOSE);
+        _writer_writef(writer, __JSON_ARRAY_CLOSE);
         return;
     }
-    _logf_line(logger, "");
+    _writef_line(writer, "");
 
     for(size_t i = 0; i < array->size - 1; i++) {
         JSON ot = array->objects[i];
 
-        _logf_indent(logger, depth+1);
-        _indent_json_object_wrap_log(logger, depth+1, ot);
+        _writef_indent(writer, depth+1);
+        _indent_json_object_wrap_write(writer, depth+1, ot);
         if (array->size > 1)
-            _logf_line(logger, __JSON_KEY_VALUE_SEPARATOR);
+            _writef_line(writer, __JSON_KEY_VALUE_SEPARATOR);
     }
 
     JSON ot = array->objects[array->size-1];
-    _logf_indent(logger, depth+1);
-    _indent_json_object_wrap_log(logger, depth+1, ot);
+    _writef_indent(writer, depth+1);
+    _indent_json_object_wrap_write(writer, depth+1, ot);
 
-    _logf_line(logger, "");
-    _logf_indent(logger, depth);
-    _logger_logf(logger, __JSON_ARRAY_CLOSE);
+    _writef_line(writer, "");
+    _writef_indent(writer, depth);
+    _writer_writef(writer, __JSON_ARRAY_CLOSE);
 }
 
-void _indent_json_OBJ_log(Logger* logger, size_t depth, _Object object) {
-    _logger_logf(logger, __JSON_OBJECT_OPEN);
+void _indent_json_OBJ_write(Writer* writer, size_t depth, _Object object) {
+    _writer_writef(writer, __JSON_OBJECT_OPEN);
     if (object->keys == 0) {
-        _logger_logf(logger, __JSON_OBJECT_CLOSE);
+        _writer_writef(writer, __JSON_OBJECT_CLOSE);
         return;
     }
-    _logf_line(logger, "");
+    _writef_line(writer, "");
 
     for(size_t i = 0; i < object->keys - 1; i++) {
         _KeyValue kv = object->pairs[i];
 
-        _logf_indent(logger, depth+1);
-        _logger_logf(logger, __JSON_KEY_PRINT_FMT, kv->key);
-        _logger_logf(logger, __JSON_KEY_TO_VALUE);
-        _indent_json_object_wrap_log(logger, depth+1, kv->value);
+        _writef_indent(writer, depth+1);
+        _writer_writef(writer, __JSON_KEY_PRINT_FMT, kv->key);
+        _writer_writef(writer, __JSON_KEY_TO_VALUE);
+        _indent_json_object_wrap_write(writer, depth+1, kv->value);
         if (object->keys > 1)
-            _logf_line(logger, __JSON_KEY_VALUE_SEPARATOR);
+            _writef_line(writer, __JSON_KEY_VALUE_SEPARATOR);
     }
 
     _KeyValue kv = object->pairs[object->keys-1];
-    _logf_indent(logger, depth+1);
-    _logger_logf(logger, __JSON_KEY_PRINT_FMT, kv->key);
-    _logger_logf(logger, __JSON_KEY_TO_VALUE);
-    _indent_json_object_wrap_log(logger, depth+1, kv->value);
+    _writef_indent(writer, depth+1);
+    _writer_writef(writer, __JSON_KEY_PRINT_FMT, kv->key);
+    _writer_writef(writer, __JSON_KEY_TO_VALUE);
+    _indent_json_object_wrap_write(writer, depth+1, kv->value);
 
-    _logf_line(logger, "");
-    _logf_indent(logger, depth);
-    _logger_logf(logger, __JSON_OBJECT_CLOSE);
+    _writef_line(writer, "");
+    _writef_indent(writer, depth);
+    _writer_writef(writer, __JSON_OBJECT_CLOSE);
 }
 
-void _indent_json_object_wrap_log(Logger* logger, size_t depth, JSON json_wrap) {
+void _indent_json_object_wrap_write(Writer* writer, size_t depth, JSON json_wrap) {
 
     switch(json_wrap->type) {
 
         case JSON_INTEGER:
-            _json_INT_log(logger, json_wrap->integer);
+            _json_INT_write(writer, json_wrap->integer);
         break;
 
         case JSON_DECIMAL:
-            _json_DEC_log(logger, json_wrap->decimal);
+            _json_DEC_write(writer, json_wrap->decimal);
         break;
 
         case JSON_BOOLEAN:
-            _json_BOOL_log(logger, json_wrap->boolean);
+            _json_BOOL_write(writer, json_wrap->boolean);
         break;
 
         case JSON_STRING:
-            _json_STR_log(logger, json_wrap->string);
+            _json_STR_write(writer, json_wrap->string);
         break;
 
         case JSON_NULL:
-            _logger_logf(logger, __JSON_NULL_PRINT);
+            _writer_writef(writer, __JSON_NULL_PRINT);
         break;
 
         case JSON_ARRAY:
-            _indent_json_ARR_log(logger, depth, json_wrap->array);
+            _indent_json_ARR_write(writer, depth, json_wrap->array);
         break;
 
         case JSON_OBJECT:
-            _indent_json_OBJ_log(logger, depth, json_wrap->object);
+            _indent_json_OBJ_write(writer, depth, json_wrap->object);
         break;
     }
 }
 
-void json_log(Logger* logger, JSON json_wrap) {
-    _indent_json_object_wrap_log(logger, 0, json_wrap);
-    _logf_line(logger, "");
+void json_write(Writer* writer, JSON json_wrap) {
+    _indent_json_object_wrap_write(writer, 0, json_wrap);
+    _writef_line(writer, "");
 }
 
 

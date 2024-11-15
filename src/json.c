@@ -21,7 +21,7 @@ int main()
     json_push(list, json_decimal_alloc(32.3));
 
     JSON array = json_array_alloc();
-    json_push(array, json_integer_alloc(12));
+    json_push(array, json_integer_alloc(-12));
     json_push(array, json_string_alloc("Smartass"));
 
     JSON obj = json_object_alloc();
@@ -31,8 +31,10 @@ int main()
     json_add_key_value(obj, "NULLS", list_nulls);
 
     // Print and free
-    Logger logger = {0};
-    logger_stdout_init(&logger);
+    Writer writer = {0};
+    writer_stdout_init(&writer);
+
+    json_write(&writer, obj);
     json_free(obj);
 
     return EXIT_SUCCESS;

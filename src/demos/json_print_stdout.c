@@ -32,10 +32,10 @@ int main()
 
     // Print and free
         // Print and free
-    Logger logger = {0};
-    logger_stdout_init(&logger);
+    Writer writer = {0};
+    writer_stdout_init(&writer);
 
-    json_log(&logger, obj);
+    json_write(&writer, obj);
     json_free(obj);
 
     return EXIT_SUCCESS;
