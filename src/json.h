@@ -61,36 +61,51 @@ typedef struct _json_boolean _json_boolean;
 typedef struct _json_key_value_pair _json_key_value_pair;
 typedef struct _json_object_wrap    _json_object_wrap;
 typedef struct _json_writer         _json_writer;
+typedef struct _json_reader         _json_reader;
 
-typedef _json_object    *_Object;
-typedef _json_array     *_Array;
-typedef _json_string    *_String;
 typedef _json_integer   *_Integer;
 typedef _json_decimal   *_Decimal;
 typedef _json_boolean   *_Boolean;
-
-typedef _json_writer    Writer;
+typedef _json_string    *_String;
+typedef _json_object    *_Object;
+typedef _json_array     *_Array;
 
 typedef _json_key_value_pair *_KeyValue;
 
+typedef _json_object_wrap    *JSON;
+
+typedef _json_writer    Writer;
+typedef _json_reader    _Reader;
+
 typedef char *c_str;
-typedef _json_object_wrap   *JSON;
+
 
 typedef enum {
-    JSON_NULL,
+    // Primitive types
+    JSON_INTEGER, JSON_DECIMAL, JSON_STRING, JSON_BOOLEAN,
     // Header types
     JSON_OBJECT, JSON_ARRAY,
-    // Primitive types
-    JSON_INTEGER, JSON_DECIMAL, JSON_STRING, JSON_BOOLEAN
+    // Null
+    JSON_NULL,
 } JSONType;
 
 typedef enum {
-    LOGGER_STDOUT,
-    LOGGER_FILE
+    WRITER_STDOUT,
+    WRITER_FILE
 } _WriterType;
+
+typedef enum {
+    READER_FILE,
+    READER_C_STR
+} _ReaderType;
 
 struct _json_writer {
     _WriterType type;
+    FILE* stream;
+};
+
+struct _json_reader {
+    _ReaderType type;
     FILE* stream;
 };
 
@@ -108,10 +123,10 @@ void writer_stdout_init(Writer* writer);
 int  writer_file_init(Writer* writer, const c_str filename);
 void writer_file_close(Writer* writer);
 
-/* Type safety */
+/* Internal type safety */
 int __ALLOC_FAILED_GUARD(void* ptr, size_t line);
 int __ALLOC_FAILED_GUARD_FREE(void* ptr, void* cleanup, size_t line);
-int __ALLOC_FAILED_MULTIOBJECT_GUARD(void* ptr, size_t line);
+int __ALLOC_FAILED_GUARD_MULTIOBJECT(void* ptr, size_t line);
 int __TYPE_GUARD(JSON ptr, JSONType type, size_t line);
 
 /* Internal struct allocators */
@@ -127,30 +142,33 @@ _KeyValue*  _json_KV_multi_alloc(size_t size);
 JSON*       _json_OBJ_multi_alloc(size_t size);
 
 /* Internal struct deallocators */
-void _json_STR_free(_String json_string);
 void _json_INT_free(_Integer json_integer);
-void _json_BOOL_free(_Boolean json_boolean);
 void _json_DEC_free(_Decimal json_decimal);
-void _json_KV_free(_KeyValue key_value);
+void _json_BOOL_free(_Boolean json_boolean);
+void _json_STR_free(_String json_string);
 void _json_OBJ_free(_Object object);
 void _json_ARR_free(_Array array);
+void _json_KV_free(_KeyValue key_value);
 
 /* API Allocators */
 JSON json_null_alloc();
-JSON json_integer_alloc(uint64_t integer);
+JSON json_integer_alloc(int64_t integer);
 JSON json_decimal_alloc(double decimal);
 JSON json_boolean_alloc(bool boolean);
 JSON json_string_alloc(const c_str string);
 JSON json_object_alloc();
 JSON json_array_alloc();
 
-/* API Deallocator */
+/* API Deallocators */
 void json_free(JSON json_wrap);
 
 /* API Utilities */
 void json_add_key_value(JSON json_wrap, const c_str key, JSON value);
 void json_push(JSON json_wrap, JSON value);
 void json_foreach(JSON json_wrap, void (*func)(JSON));
+JSON json_reduceint(JSON json_wrap, int64_t accumulator, int64_t (*func)(JSON, int64_t));
+JSON json_reducedec(JSON json_wrap, double accumulator, double (*func)(JSON, double));
+JSON json_reducebool(JSON json_wrap, bool accumulator, bool (*func)(JSON, bool));
 
 /* Internal writing */
 void _writer_writef(Writer* writer, const c_str message, ...);
@@ -159,11 +177,11 @@ void _writef_line(Writer* writer, const c_str message);
 
 void _json_INT_write(Writer* writer, _Integer integer);
 void _json_DEC_write(Writer* writer, _Decimal decimal);
-void _json_STR_write(Writer* writer, _String string);
 void _json_BOOL_write(Writer* writer, _Boolean boolean);
+void _json_STR_write(Writer* writer, _String string);
 
-void _indent_json_ARR_write(Writer* writer, size_t depth, _Array array);
 void _indent_json_OBJ_write(Writer* writer, size_t depth, _Object object);
+void _indent_json_ARR_write(Writer* writer, size_t depth, _Array array);
 void _indent_json_object_wrap_write(Writer* writer, size_t depth, JSON json_wrap);
 
 /* API Writing*/
@@ -177,18 +195,18 @@ void json_write(Writer* writer, JSON json_wrap);
 */ 
 
 void writer_stdout_init(Writer* writer) {
-    writer->type = LOGGER_STDOUT;
+    writer->type = WRITER_STDOUT;
     writer->stream = stdout;
 }
 
 int writer_file_init(Writer* writer, const c_str filename) {
-    writer->type = LOGGER_FILE;
+    writer->type = WRITER_FILE;
     writer->stream = fopen(filename, "w");
     return writer->stream ? 1 : 0;
 }
 
 void writer_file_close(Writer* writer) {
-    if (writer->type == LOGGER_FILE && writer->stream) {
+    if (writer->type == WRITER_FILE && writer->stream) {
         fclose(writer->stream);
         writer->stream = NULL;
     }
@@ -272,7 +290,7 @@ int __ALLOC_FAILED_GUARD_FREE(void* ptr, void* cleanup, size_t line) {
     return 1;
 }
 
-int __ALLOC_FAILED_MULTIOBJECT_GUARD(void* ptr, size_t line) {
+int __ALLOC_FAILED_GUARD_MULTIOBJECT(void* ptr, size_t line) {
     if (!ptr) {
         fprintf(stderr, "Memory reallocation failed at %s:%d\n", __FILE__, line);
         return 0;
@@ -471,7 +489,7 @@ JSON json_null_alloc() {
     return new_json_wrap;
 }
 
-JSON json_integer_alloc(uint64_t integer) {
+JSON json_integer_alloc(int64_t integer) {
     JSON new_json_wrap = (JSON)malloc(sizeof(_json_object_wrap));
     if (!__ALLOC_FAILED_GUARD(new_json_wrap, __LINE__)) return NULL;
 
@@ -548,12 +566,12 @@ void json_free(JSON json_wrap) {
                 _json_DEC_free(json_wrap->decimal);
             break;
 
-            case JSON_STRING:
-                _json_STR_free(json_wrap->string);
-            break;
-
             case JSON_BOOLEAN:
                 _json_BOOL_free(json_wrap->boolean);
+            break;
+
+            case JSON_STRING:
+                _json_STR_free(json_wrap->string);
             break;
 
             case JSON_OBJECT:
@@ -592,7 +610,7 @@ void json_add_key_value(JSON json_wrap, const c_str key, JSON value) {
     if (ob->keys == ob->_capacity) {
         size_t new_capacity = ob->_capacity * 2;
         _KeyValue* new_pairs = realloc(ob->pairs, new_capacity * sizeof(_KeyValue));
-        if (!__ALLOC_FAILED_MULTIOBJECT_GUARD(new_pairs, __LINE__)) return;
+        if (!__ALLOC_FAILED_GUARD_MULTIOBJECT(new_pairs, __LINE__)) return;
 
         ob->_capacity = new_capacity;
         ob->pairs = new_pairs;
@@ -609,7 +627,7 @@ void json_push(JSON json_wrap, JSON value) {
     if (ar->size == ar->_capacity) {
         size_t new_capacity = ar->_capacity * 2;
         JSON* new_objects = realloc(ar->objects, new_capacity * sizeof(JSON));
-        if (!__ALLOC_FAILED_MULTIOBJECT_GUARD(new_objects, __LINE__)) return;
+        if (!__ALLOC_FAILED_GUARD_MULTIOBJECT(new_objects, __LINE__)) return;
 
         ar->_capacity = new_capacity;
         ar->objects = new_objects;
@@ -625,6 +643,51 @@ void json_foreach(JSON json_wrap, void (*func)(JSON)) {
     for (size_t i = 0; i < ar->size; i++)
         func(ar->objects[i]);
 }
+
+JSON json_reduceint(JSON json_wrap, int64_t accumulator, int64_t (*func)(JSON, int64_t)) {
+    if (!__TYPE_GUARD(json_wrap, JSON_ARRAY, __LINE__)) exit(EXIT_FAILURE);
+    
+    _Array ar = json_wrap->array;
+    for (size_t i = 0; i < ar->size; i++) {
+        if (!__TYPE_GUARD(ar->objects[i], JSON_INTEGER, __LINE__)) exit(EXIT_FAILURE);
+        accumulator = func(ar->objects[i], accumulator);
+    }
+
+    return json_integer_alloc(accumulator);
+}
+
+JSON json_reducedec(JSON json_wrap, double accumulator, double (*func)(JSON, double)) {
+    if (!__TYPE_GUARD(json_wrap, JSON_ARRAY, __LINE__)) exit(EXIT_FAILURE);
+    
+    _Array ar = json_wrap->array;
+    for (size_t i = 0; i < ar->size; i++) {
+        if (!__TYPE_GUARD(ar->objects[i], JSON_DECIMAL, __LINE__)) exit(EXIT_FAILURE);
+        accumulator = func(ar->objects[i], accumulator);
+    }
+
+    return json_decimal_alloc(accumulator);
+}
+
+JSON json_reducebool(JSON json_wrap, bool accumulator, bool (*func)(JSON, bool)) {
+    if (!__TYPE_GUARD(json_wrap, JSON_ARRAY, __LINE__)) exit(EXIT_FAILURE);
+    
+    _Array ar = json_wrap->array;
+    for (size_t i = 0; i < ar->size; i++) {
+        if (!__TYPE_GUARD(ar->objects[i], JSON_BOOLEAN, __LINE__)) exit(EXIT_FAILURE);
+        accumulator = func(ar->objects[i], accumulator);
+    }
+
+    return json_boolean_alloc(accumulator);
+}
+
+
+/*  
+    ================================
+     Utilities   
+    ================================
+*/ 
+
+
 
 
 /*  
@@ -762,6 +825,15 @@ void json_write(Writer* writer, JSON json_wrap) {
     _indent_json_object_wrap_write(writer, 0, json_wrap);
     _writef_line(writer, "");
 }
+
+
+/*  
+    ================================
+     Reading cont'd   
+    ================================
+*/ 
+
+
 
 
 

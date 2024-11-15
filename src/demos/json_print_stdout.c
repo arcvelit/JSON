@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+
 int main()
 {
     // Demo setup
@@ -31,7 +32,6 @@ int main()
     json_add_key_value(obj, "NULLS", list_nulls);
 
     // Print and free
-        // Print and free
     Writer writer = {0};
     writer_stdout_init(&writer);
 
