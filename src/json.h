@@ -187,6 +187,17 @@ void _indent_json_object_wrap_write(Writer* writer, size_t depth, JSON json_wrap
 /* API Writing*/
 void json_write(Writer* writer, JSON json_wrap);
 
+/* Internal reassignment */
+void _json_INT_reset(_Integer integer, int64_t value);
+void _json_DEC_reset(_Decimal decimal, double value);
+void _json_BOOL_reset(_Boolean boolean, bool value);
+
+/* API Reassignment */
+void json_integer_reset(JSON json_wrap, int64_t value);
+void json_decimal_reset(JSON json_wrap, double value);
+void json_boolean_reset(JSON json_wrap, bool value);
+void json_string_reset(JSON json_wrap, const c_str value);
+
 
 /*  
     ================================
@@ -687,7 +698,42 @@ JSON json_reducebool(JSON json_wrap, bool accumulator, bool (*func)(JSON, bool))
     ================================
 */ 
 
+void _json_INT_reset(_Integer integer, int64_t value) {
+    integer->value = value;
+}
 
+void _json_DEC_reset(_Decimal decimal, double value) {
+    decimal->value = value;
+}
+
+void _json_BOOL_reset(_Boolean boolean, bool value) {
+    boolean->value = value;
+}
+
+void json_integer_reset(JSON json_wrap, int64_t value) {
+    if (!__TYPE_GUARD(json_wrap, JSON_INTEGER, __LINE__)) exit(EXIT_FAILURE);
+
+    _json_INT_reset(json_wrap->integer, value);
+}
+
+void json_decimal_reset(JSON json_wrap, double value) {
+    if (!__TYPE_GUARD(json_wrap, JSON_DECIMAL, __LINE__)) exit(EXIT_FAILURE);
+
+    _json_DEC_reset(json_wrap->decimal, value);
+}
+
+void json_boolean_reset(JSON json_wrap, bool value) {
+    if (!__TYPE_GUARD(json_wrap, JSON_BOOLEAN, __LINE__)) exit(EXIT_FAILURE);
+
+    _json_BOOL_reset(json_wrap->boolean, value);
+}
+
+void json_string_reset(JSON json_wrap, const c_str value) {
+    if (!__TYPE_GUARD(json_wrap, JSON_STRING, __LINE__)) exit(EXIT_FAILURE);
+
+    _json_STR_free(json_wrap->string);
+    json_wrap->string = _json_STR_alloc(value, strlen(value));
+}
 
 
 /*  

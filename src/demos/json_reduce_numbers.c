@@ -23,7 +23,7 @@ int main()
     json_push(list, json_integer_alloc(2));
     json_push(list, json_integer_alloc(3));
 
-    // Get the product of the array elements
+    // Get the product and sum of the array elements
     JSON product = json_reduceint(list, 1, integer_multiplication);
     JSON sum = json_reduceint(list, 0, integer_addition);
 
