@@ -198,6 +198,23 @@ void json_decimal_reset(JSON json_wrap, double value);
 void json_boolean_reset(JSON json_wrap, bool value);
 void json_string_reset(JSON json_wrap, const c_str value);
 
+/* Internal copying */
+_Array _json_ARR_copy(_Array array);
+_Object _json_OBJ_copy(_Object object);
+
+/* API Copying */
+JSON json_copy(JSON json_wrap);
+
+/* API Predicates */
+bool json_isnull(JSON json_wrap);
+bool json_isint(JSON json_wrap);
+bool json_isdec(JSON json_wrap);
+bool json_isstr(JSON json_wrap);
+bool json_isobj(JSON json_wrap);
+bool json_isarr(JSON json_wrap);
+
+bool json_is(JSON json_wrap, JSON other_wrap);
+
 
 /*  
     ================================
@@ -606,6 +623,78 @@ void json_free(JSON json_wrap) {
     }
 }
 
+_Object _json_OBJ_copy(_Object object) {
+
+    _Object new_object = _json_OBJ_alloc();
+
+    new_object->keys = object->keys;
+    new_object->_capacity = new_object->_capacity;
+    new_object->pairs = _json_KV_multi_alloc(new_object->_capacity);
+
+    for (size_t i = 0; i < new_object->keys; i++) {
+        const c_str old_key = object->pairs[i]->key;
+        JSON new_value = json_copy(object->pairs[i]->value);
+        new_object->pairs[i] = _json_KV_alloc(old_key, strlen(old_key), new_value);
+    }
+
+    return new_object;
+}
+
+_Array _json_ARR_copy(_Array array) {
+
+    _Array new_array = _json_ARR_alloc();
+
+    new_array->size = array->size;
+    new_array->_capacity = array->_capacity;
+    new_array->objects = _json_OBJ_multi_alloc(new_array->_capacity);
+
+    for (size_t i = 0; i < new_array->size; i++) {
+        new_array->objects[i] = json_copy(array->objects[i]);
+    }
+
+    return new_array;
+}
+
+JSON json_copy(JSON json_wrap) {
+
+    if (!json_wrap) return NULL;
+
+    switch (json_wrap->type) {
+
+        case JSON_INTEGER: 
+            return json_integer_alloc(json_wrap->integer->value);
+
+        case JSON_DECIMAL:
+            return json_decimal_alloc(json_wrap->decimal->value);
+
+        case JSON_BOOLEAN:
+            return json_boolean_alloc(json_wrap->boolean->value);
+
+        case JSON_STRING:
+            return json_string_alloc(json_wrap->string->value);
+
+        case JSON_OBJECT: {
+            JSON json_ret = json_object_alloc();
+            json_ret->object = _json_OBJ_copy(json_wrap->object);
+            return json_ret;
+        }
+
+        case JSON_ARRAY: {
+            JSON json_ret = json_array_alloc();
+            json_ret->array = _json_ARR_copy(json_wrap->array);
+            return json_ret;
+        }
+
+        case JSON_NULL:
+            return json_null_alloc();
+
+        default:
+            fprintf(stderr, "Copy failed for json_wrap at %s:%d\n", __FILE__, __LINE__);
+            return NULL;
+    }
+
+}
+
 
 /*  
     ================================
@@ -629,6 +718,18 @@ void json_add_key_value(JSON json_wrap, const c_str key, JSON value) {
 
     ob->pairs[ob->keys++] = _json_KV_alloc(key, strlen(key), value);    
 }
+
+JSON json_get(JSON json_wrap, const c_str key) {
+    if (!__TYPE_GUARD(json_wrap, JSON_OBJECT, __LINE__)) return NULL;
+
+    for (size_t i = 0; i < json_wrap->object->keys; i++)
+        if (strcmp(key, json_wrap->object->pairs[i]->key))
+            return json_wrap->object->pairs[i]->value;
+
+    return NULL;
+}
+
+
 
 void json_push(JSON json_wrap, JSON value) {
     if (!__TYPE_GUARD(json_wrap, JSON_ARRAY, __LINE__)) return;
@@ -691,6 +792,48 @@ JSON json_reducebool(JSON json_wrap, bool accumulator, bool (*func)(JSON, bool))
     return json_boolean_alloc(accumulator);
 }
 
+/*  
+    ================================
+     Predicates   
+    ================================
+*/ 
+
+bool json_isnull(JSON json_wrap) {
+    return json_wrap->object && 
+    json_wrap->type == JSON_NULL;
+}
+
+bool json_isint(JSON json_wrap) {
+    return json_wrap->integer && 
+    json_wrap->type == JSON_INTEGER;
+}
+
+bool json_isdec(JSON json_wrap) {
+    return json_wrap->decimal && 
+    json_wrap->type == JSON_DECIMAL;
+}
+
+bool json_isstr(JSON json_wrap) {
+    return json_wrap->string && 
+    json_wrap->type == JSON_STRING;
+}
+
+bool json_isobj(JSON json_wrap) {
+    return json_wrap->object && 
+    json_wrap->type == JSON_OBJECT;
+}
+
+bool json_isarr(JSON json_wrap) {
+    return json_wrap && 
+    json_wrap->array && 
+    json_wrap->type == JSON_ARRAY;
+}
+
+bool json_is(JSON json_wrap, JSON other_wrap) {
+    return json_wrap && 
+    json_wrap == other_wrap && 
+    json_wrap->type == other_wrap->type; 
+}
 
 /*  
     ================================
@@ -734,6 +877,8 @@ void json_string_reset(JSON json_wrap, const c_str value) {
     _json_STR_free(json_wrap->string);
     json_wrap->string = _json_STR_alloc(value, strlen(value));
 }
+
+
 
 
 /*  
@@ -878,6 +1023,8 @@ void json_write(Writer* writer, JSON json_wrap) {
      Reading cont'd   
     ================================
 */ 
+
+
 
 
 
