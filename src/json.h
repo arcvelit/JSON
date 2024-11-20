@@ -356,7 +356,7 @@ _String _json_STR_alloc(const c_str string, size_t size) {
 void _json_STR_free(_String json_string) {
     if (json_string) {
         __FREE_DEBUG_PRINT("string");
-        free(json_string->value);
+        if (json_string->value) free(json_string->value);
         free(json_string);
     }
 }
@@ -587,6 +587,7 @@ JSON json_array_alloc() {
 }
 
 void json_free(JSON json_wrap) {
+
     if (json_wrap) {
         switch (json_wrap->type) {
             case JSON_INTEGER: 
