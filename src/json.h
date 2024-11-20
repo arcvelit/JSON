@@ -15,7 +15,7 @@
     ================================
 */ 
 
-#define __JSON_MULTIOBJECT_INITIAL_CAP 2
+#define __JSON_MULTIOBJECT_INITIAL_CAP 4
 
 #define __JSON_OBJECT_OPEN "{"
 #define __JSON_OBJECT_CLOSE "}"
@@ -36,7 +36,6 @@
 #define __JSON_NULL_PRINT "null"
 
 #define __JSON_BOOL_TO_STRING(b) ((b) ? __JSON_BOOLEAN_TRUE_PRINT_FMT : __JSON_BOOLEAN_FALSE_PRINT_FMT)
-
 
 #ifdef __JSON_FREE_DEBUG
     #define __FREE_DEBUG_PRINT(MESSAGE) printf("\nDEBUG: Freeing %s\n", MESSAGE)
@@ -75,7 +74,6 @@ typedef _json_key_value_pair *_KeyValue;
 typedef _json_object_wrap    *JSON;
 
 typedef _json_writer    Writer;
-typedef _json_reader    _Reader;
 
 typedef char *c_str;
 
@@ -91,21 +89,11 @@ typedef enum {
 
 typedef enum {
     WRITER_STDOUT,
-    WRITER_FILE
+    WRITER_FILE,
 } _WriterType;
-
-typedef enum {
-    READER_FILE,
-    READER_C_STR
-} _ReaderType;
 
 struct _json_writer {
     _WriterType type;
-    FILE* stream;
-};
-
-struct _json_reader {
-    _ReaderType type;
     FILE* stream;
 };
 
@@ -205,6 +193,10 @@ _Object _json_OBJ_copy(_Object object);
 /* API Copying */
 JSON json_copy(JSON json_wrap);
 
+/* API Data */
+JSON* json_get(JSON json_wrap, const c_str key);
+void  json_reassign(JSON* json_wrap_ptr, JSON new_wrap);
+
 /* API Predicates */
 bool json_isnull(JSON json_wrap);
 bool json_isint(JSON json_wrap);
@@ -214,6 +206,7 @@ bool json_isobj(JSON json_wrap);
 bool json_isarr(JSON json_wrap);
 
 bool json_is(JSON json_wrap, JSON other_wrap);
+bool json_eq(JSON json_wrap, JSON other_wrap);
 
 
 /*  
@@ -616,7 +609,7 @@ void json_free(JSON json_wrap) {
 
             default:
                 fprintf(stderr, "Memory free failed for json_wrap at %s:%d\n", __FILE__, __LINE__);
-            break;
+                return;
         }
 
         free(json_wrap);
@@ -719,14 +712,21 @@ void json_add_key_value(JSON json_wrap, const c_str key, JSON value) {
     ob->pairs[ob->keys++] = _json_KV_alloc(key, strlen(key), value);    
 }
 
-JSON json_get(JSON json_wrap, const c_str key) {
+JSON* json_get(JSON json_wrap, const c_str key) {
     if (!__TYPE_GUARD(json_wrap, JSON_OBJECT, __LINE__)) return NULL;
 
     for (size_t i = 0; i < json_wrap->object->keys; i++)
-        if (strcmp(key, json_wrap->object->pairs[i]->key))
-            return json_wrap->object->pairs[i]->value;
+        if (strcmp(key, json_wrap->object->pairs[i]->key) == 0)
+            return &json_wrap->object->pairs[i]->value;
 
     return NULL;
+}
+
+void json_reassign(JSON* json_wrap_ptr, JSON new_wrap) {
+    if (json_wrap_ptr && new_wrap) {
+        json_free(*json_wrap_ptr);
+        *json_wrap_ptr = new_wrap;
+    }
 }
 
 
@@ -835,6 +835,21 @@ bool json_is(JSON json_wrap, JSON other_wrap) {
     json_wrap->type == other_wrap->type; 
 }
 
+bool json_eq(JSON json_wrap, JSON other_wrap) {
+    if (json_wrap && other_wrap && json_wrap->type == other_wrap->type) {
+
+        switch (json_wrap->type)
+        {
+            case JSON_INTEGER: return json_wrap->integer->value == other_wrap->integer->value;
+            case JSON_DECIMAL: return json_wrap->decimal->value == other_wrap->decimal->value;
+            case JSON_BOOLEAN: return json_wrap->boolean->value == other_wrap->boolean->value;
+            case JSON_STRING : return strcmp(json_wrap->string->value, other_wrap->string->value) == 0;
+            default: return false;
+        }
+    }
+    return false;
+}
+
 /*  
     ================================
      Utilities   
@@ -877,8 +892,6 @@ void json_string_reset(JSON json_wrap, const c_str value) {
     _json_STR_free(json_wrap->string);
     json_wrap->string = _json_STR_alloc(value, strlen(value));
 }
-
-
 
 
 /*  
@@ -1016,18 +1029,6 @@ void json_write(Writer* writer, JSON json_wrap) {
     _indent_json_object_wrap_write(writer, 0, json_wrap);
     _writef_line(writer, "");
 }
-
-
-/*  
-    ================================
-     Reading cont'd   
-    ================================
-*/ 
-
-
-
-
-
 
 
 
