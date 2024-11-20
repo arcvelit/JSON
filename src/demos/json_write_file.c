@@ -37,5 +37,7 @@ int main()
     json_write(&writer, obj);
     json_free(obj);
 
+    writer_file_close(&writer);
+
     return EXIT_SUCCESS;
 }
