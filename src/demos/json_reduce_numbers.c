@@ -1,8 +1,6 @@
 //#define __JSON_FREE_DEBUG
 
 #include "../json.h" 
-#include <stdio.h>
-#include <stdlib.h>
 
 // Product reduce
 int64_t integer_multiplication(JSON json_wrap, int64_t accumulator) {

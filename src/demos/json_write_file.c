@@ -1,8 +1,6 @@
 //#define __JSON_FREE_DEBUG
 
 #include "../json.h" 
-#include <stdio.h>
-#include <stdlib.h>
 
 
 int main()

@@ -110,6 +110,7 @@ struct _json_writer {
 void writer_stdout_init(Writer* writer);
 int  writer_file_init(Writer* writer, const c_str filename);
 void writer_file_close(Writer* writer);
+void writer_writef(Writer* writer, const c_str message, ...);
 
 /* Internal type safety */
 int __ALLOC_FAILED_GUARD(void* ptr, size_t line);
@@ -159,7 +160,6 @@ JSON json_reducedec(JSON json_wrap, double accumulator, double (*func)(JSON, dou
 JSON json_reducebool(JSON json_wrap, bool accumulator, bool (*func)(JSON, bool));
 
 /* Internal writing */
-void _writer_writef(Writer* writer, const c_str message, ...);
 void _writef_indent(Writer* writer, size_t depth);
 void _writef_line(Writer* writer, const c_str message);
 
@@ -232,6 +232,16 @@ void writer_file_close(Writer* writer) {
         writer->stream = NULL;
     }
 }
+
+void writer_writef(Writer* writer, const c_str message, ...) {
+    if (writer && writer->stream) {
+        va_list args;
+        va_start(args, message);
+        vfprintf(writer->stream, message, args);
+        va_end(args);
+    }
+}
+
 
 /*  
     ================================
@@ -900,45 +910,36 @@ void json_string_reset(JSON json_wrap, const c_str value) {
     ================================
 */ 
 
-void _writer_writef(Writer* writer, const c_str message, ...) {
-    if (writer && writer->stream) {
-        va_list args;
-        va_start(args, message);
-        vfprintf(writer->stream, message, args);
-        va_end(args);
-    }
-}
-
 void _writef_indent(Writer* writer, size_t depth) {
-    while(depth-- > 0) _writer_writef(writer, __JSON_TABULATION);
+    while(depth-- > 0) writer_writef(writer, __JSON_TABULATION);
 }
 
 void _writef_line(Writer* writer, const c_str message) {
-    _writer_writef(writer, "%s\n", message);
+    writer_writef(writer, "%s\n", message);
 }
 
 /* Print objects */
 
 void _json_INT_write(Writer* writer, _Integer integer) {
-    _writer_writef(writer, __JSON_INTEGER_PRINT_FMT, integer->value);
+    writer_writef(writer, __JSON_INTEGER_PRINT_FMT, integer->value);
 }
 
 void _json_DEC_write(Writer* writer, _Decimal decimal) {
-    _writer_writef(writer, __JSON_DOUBLE_PRINT_FMT, decimal->value);
+    writer_writef(writer, __JSON_DOUBLE_PRINT_FMT, decimal->value);
 }
 
 void _json_STR_write(Writer* writer, _String string) {
-    _writer_writef(writer, __JSON_STRING_PRINT_FMT, string->value);
+    writer_writef(writer, __JSON_STRING_PRINT_FMT, string->value);
 }
 
 void _json_BOOL_write(Writer* writer, _Boolean boolean) {
-    _writer_writef(writer, "%s", __JSON_BOOL_TO_STRING(boolean->value));
+    writer_writef(writer, "%s", __JSON_BOOL_TO_STRING(boolean->value));
 }
 
 void _indent_json_ARR_write(Writer* writer, size_t depth, _Array array) {
-    _writer_writef(writer, __JSON_ARRAY_OPEN);
+    writer_writef(writer, __JSON_ARRAY_OPEN);
     if (array->size == 0) {
-        _writer_writef(writer, __JSON_ARRAY_CLOSE);
+        writer_writef(writer, __JSON_ARRAY_CLOSE);
         return;
     }
     _writef_line(writer, "");
@@ -958,13 +959,13 @@ void _indent_json_ARR_write(Writer* writer, size_t depth, _Array array) {
 
     _writef_line(writer, "");
     _writef_indent(writer, depth);
-    _writer_writef(writer, __JSON_ARRAY_CLOSE);
+    writer_writef(writer, __JSON_ARRAY_CLOSE);
 }
 
 void _indent_json_OBJ_write(Writer* writer, size_t depth, _Object object) {
-    _writer_writef(writer, __JSON_OBJECT_OPEN);
+    writer_writef(writer, __JSON_OBJECT_OPEN);
     if (object->keys == 0) {
-        _writer_writef(writer, __JSON_OBJECT_CLOSE);
+        writer_writef(writer, __JSON_OBJECT_CLOSE);
         return;
     }
     _writef_line(writer, "");
@@ -973,8 +974,8 @@ void _indent_json_OBJ_write(Writer* writer, size_t depth, _Object object) {
         _KeyValue kv = object->pairs[i];
 
         _writef_indent(writer, depth+1);
-        _writer_writef(writer, __JSON_KEY_PRINT_FMT, kv->key);
-        _writer_writef(writer, __JSON_KEY_TO_VALUE);
+        writer_writef(writer, __JSON_KEY_PRINT_FMT, kv->key);
+        writer_writef(writer, __JSON_KEY_TO_VALUE);
         _indent_json_object_wrap_write(writer, depth+1, kv->value);
         if (object->keys > 1)
             _writef_line(writer, __JSON_KEY_VALUE_SEPARATOR);
@@ -982,13 +983,13 @@ void _indent_json_OBJ_write(Writer* writer, size_t depth, _Object object) {
 
     _KeyValue kv = object->pairs[object->keys-1];
     _writef_indent(writer, depth+1);
-    _writer_writef(writer, __JSON_KEY_PRINT_FMT, kv->key);
-    _writer_writef(writer, __JSON_KEY_TO_VALUE);
+    writer_writef(writer, __JSON_KEY_PRINT_FMT, kv->key);
+    writer_writef(writer, __JSON_KEY_TO_VALUE);
     _indent_json_object_wrap_write(writer, depth+1, kv->value);
 
     _writef_line(writer, "");
     _writef_indent(writer, depth);
-    _writer_writef(writer, __JSON_OBJECT_CLOSE);
+    writer_writef(writer, __JSON_OBJECT_CLOSE);
 }
 
 void _indent_json_object_wrap_write(Writer* writer, size_t depth, JSON json_wrap) {
@@ -1012,7 +1013,7 @@ void _indent_json_object_wrap_write(Writer* writer, size_t depth, JSON json_wrap
         break;
 
         case JSON_NULL:
-            _writer_writef(writer, __JSON_NULL_PRINT);
+            writer_writef(writer, __JSON_NULL_PRINT);
         break;
 
         case JSON_ARRAY:
