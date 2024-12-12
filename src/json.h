@@ -163,10 +163,10 @@ JSON json_reducebool(JSON json_wrap, bool accumulator, bool (*func)(JSON, bool))
 void _writef_indent(Writer* writer, size_t depth);
 void _writef_line(Writer* writer, const c_str message);
 
-void _json_INT_write(Writer* writer, _Integer integer);
+void _json_internal_integer_write(Writer* writer, _Integer integer);
 void _json_internal_decimal_write(Writer* writer, _Decimal decimal);
-void _json_BOOL_write(Writer* writer, _Boolean boolean);
-void _json_STR_write(Writer* writer, _String string);
+void _json_internal_boolean_write(Writer* writer, _Boolean boolean);
+void _json_internal_string_write(Writer* writer, _String string);
 
 void _indent_json_internal_object_write(Writer* writer, size_t depth, _Object object);
 void _indent_json_internal_array_write(Writer* writer, size_t depth, _Array array);
@@ -176,9 +176,9 @@ void _indent_json_object_wrap_write(Writer* writer, size_t depth, JSON json_wrap
 void json_write(Writer* writer, JSON json_wrap);
 
 /* Internal reassignment */
-void _json_INT_reset(_Integer integer, int64_t value);
+void _json_internal_integer_reset(_Integer integer, int64_t value);
 void _json_internal_decimal_reset(_Decimal decimal, double value);
-void _json_BOOL_reset(_Boolean boolean, bool value);
+void _json_internal_boolean_reset(_Boolean boolean, bool value);
 
 /* API Reassignment */
 void json_integer_reset(JSON json_wrap, int64_t value);
@@ -195,6 +195,7 @@ JSON json_copy(JSON json_wrap);
 
 /* API Data */
 JSON* json_get(JSON json_wrap, const c_str key);
+bool  json_in(JSON json_array, JSON json_wrap);
 void  json_reassign(JSON* json_wrap_ptr, JSON new_wrap);
 
 /* API Predicates */
@@ -706,10 +707,10 @@ JSON json_copy(JSON json_wrap) {
     ================================
 */ 
 
-void json_add_key_value(JSON json_wrap, const c_str key, JSON value) {
-    if (!__TYPE_GUARD(json_wrap, JSON_OBJECT, __LINE__)) return;
+void json_add_key_value(JSON json_obj, const c_str key, JSON value) {
+    if (!__TYPE_GUARD(json_obj, JSON_OBJECT, __LINE__)) return;
 
-    _Object ob = json_wrap->object;
+    _Object ob = json_obj->object;
 
     if (ob->keys == ob->_capacity) {
         size_t new_capacity = ob->_capacity * 2;
@@ -723,14 +724,25 @@ void json_add_key_value(JSON json_wrap, const c_str key, JSON value) {
     ob->pairs[ob->keys++] = _json_internal_kv_alloc(key, strlen(key), value);    
 }
 
-JSON* json_get(JSON json_wrap, const c_str key) {
-    if (!__TYPE_GUARD(json_wrap, JSON_OBJECT, __LINE__)) return NULL;
+JSON* json_get(JSON json_obj, const c_str key) {
+    if (!__TYPE_GUARD(json_obj, JSON_OBJECT, __LINE__)) return NULL;
 
-    for (size_t i = 0; i < json_wrap->object->keys; i++)
-        if (strcmp(key, json_wrap->object->pairs[i]->key) == 0)
-            return &json_wrap->object->pairs[i]->value;
+    for (size_t i = 0; i < json_obj->object->keys; i++)
+        if (strcmp(key, json_obj->object->pairs[i]->key) == 0)
+            return &json_obj->object->pairs[i]->value;
 
     return NULL;
+}
+
+bool json_in(JSON json_array, JSON json_wrap) {
+    if (!__TYPE_GUARD(json_array, JSON_ARRAY, __LINE__)) return NULL;
+
+    for (size_t i = 0; i < json_array->array->size; i++) {
+        if (json_eq(json_array->array->objects[i], json_wrap))
+            return true;
+    }
+
+    return false;
 }
 
 void json_reassign(JSON* json_wrap_ptr, JSON new_wrap) {
@@ -740,12 +752,10 @@ void json_reassign(JSON* json_wrap_ptr, JSON new_wrap) {
     }
 }
 
+void json_push(JSON json_array, JSON value) {
+    if (!__TYPE_GUARD(json_array, JSON_ARRAY, __LINE__)) return;
 
-
-void json_push(JSON json_wrap, JSON value) {
-    if (!__TYPE_GUARD(json_wrap, JSON_ARRAY, __LINE__)) return;
-
-    _Array ar = json_wrap->array;
+    _Array ar = json_array->array;
 
     if (ar->size == ar->_capacity) {
         size_t new_capacity = ar->_capacity * 2;
@@ -759,18 +769,18 @@ void json_push(JSON json_wrap, JSON value) {
     ar->objects[ar->size++] = value;
 }
 
-void json_foreach(JSON json_wrap, void (*func)(JSON)) {
-    if (!__TYPE_GUARD(json_wrap, JSON_ARRAY, __LINE__)) return;
+void json_foreach(JSON json_array, void (*func)(JSON)) {
+    if (!__TYPE_GUARD(json_array, JSON_ARRAY, __LINE__)) return;
     
-    _Array ar = json_wrap->array;
+    _Array ar = json_array->array;
     for (size_t i = 0; i < ar->size; i++)
         func(ar->objects[i]);
 }
 
-JSON json_reduceint(JSON json_wrap, int64_t accumulator, int64_t (*func)(JSON, int64_t)) {
-    if (!__TYPE_GUARD(json_wrap, JSON_ARRAY, __LINE__)) exit(EXIT_FAILURE);
+JSON json_reduceint(JSON json_array, int64_t accumulator, int64_t (*func)(JSON, int64_t)) {
+    if (!__TYPE_GUARD(json_array, JSON_ARRAY, __LINE__)) exit(EXIT_FAILURE);
     
-    _Array ar = json_wrap->array;
+    _Array ar = json_array->array;
     for (size_t i = 0; i < ar->size; i++) {
         if (!__TYPE_GUARD(ar->objects[i], JSON_INTEGER, __LINE__)) exit(EXIT_FAILURE);
         accumulator = func(ar->objects[i], accumulator);
@@ -779,10 +789,10 @@ JSON json_reduceint(JSON json_wrap, int64_t accumulator, int64_t (*func)(JSON, i
     return json_integer_alloc(accumulator);
 }
 
-JSON json_reducedec(JSON json_wrap, double accumulator, double (*func)(JSON, double)) {
-    if (!__TYPE_GUARD(json_wrap, JSON_ARRAY, __LINE__)) exit(EXIT_FAILURE);
+JSON json_reducedec(JSON json_array, double accumulator, double (*func)(JSON, double)) {
+    if (!__TYPE_GUARD(json_array, JSON_ARRAY, __LINE__)) exit(EXIT_FAILURE);
     
-    _Array ar = json_wrap->array;
+    _Array ar = json_array->array;
     for (size_t i = 0; i < ar->size; i++) {
         if (!__TYPE_GUARD(ar->objects[i], JSON_DECIMAL, __LINE__)) exit(EXIT_FAILURE);
         accumulator = func(ar->objects[i], accumulator);
@@ -791,10 +801,10 @@ JSON json_reducedec(JSON json_wrap, double accumulator, double (*func)(JSON, dou
     return json_decimal_alloc(accumulator);
 }
 
-JSON json_reducebool(JSON json_wrap, bool accumulator, bool (*func)(JSON, bool)) {
-    if (!__TYPE_GUARD(json_wrap, JSON_ARRAY, __LINE__)) exit(EXIT_FAILURE);
+JSON json_reducebool(JSON json_array, bool accumulator, bool (*func)(JSON, bool)) {
+    if (!__TYPE_GUARD(json_array, JSON_ARRAY, __LINE__)) exit(EXIT_FAILURE);
     
-    _Array ar = json_wrap->array;
+    _Array ar = json_array->array;
     for (size_t i = 0; i < ar->size; i++) {
         if (!__TYPE_GUARD(ar->objects[i], JSON_BOOLEAN, __LINE__)) exit(EXIT_FAILURE);
         accumulator = func(ar->objects[i], accumulator);
@@ -867,7 +877,7 @@ bool json_eq(JSON json_wrap, JSON other_wrap) {
     ================================
 */ 
 
-void _json_INT_reset(_Integer integer, int64_t value) {
+void _json_internal_integer_reset(_Integer integer, int64_t value) {
     integer->value = value;
 }
 
@@ -875,33 +885,33 @@ void _json_internal_decimal_reset(_Decimal decimal, double value) {
     decimal->value = value;
 }
 
-void _json_BOOL_reset(_Boolean boolean, bool value) {
+void _json_internal_boolean_reset(_Boolean boolean, bool value) {
     boolean->value = value;
 }
 
-void json_integer_reset(JSON json_wrap, int64_t value) {
-    if (!__TYPE_GUARD(json_wrap, JSON_INTEGER, __LINE__)) exit(EXIT_FAILURE);
+void json_integer_reset(JSON json_int, int64_t value) {
+    if (!__TYPE_GUARD(json_int, JSON_INTEGER, __LINE__)) exit(EXIT_FAILURE);
 
-    _json_INT_reset(json_wrap->integer, value);
+    _json_internal_integer_reset(json_int->integer, value);
 }
 
-void json_decimal_reset(JSON json_wrap, double value) {
-    if (!__TYPE_GUARD(json_wrap, JSON_DECIMAL, __LINE__)) exit(EXIT_FAILURE);
+void json_decimal_reset(JSON json_dec, double value) {
+    if (!__TYPE_GUARD(json_dec, JSON_DECIMAL, __LINE__)) exit(EXIT_FAILURE);
 
-    _json_internal_decimal_reset(json_wrap->decimal, value);
+    _json_internal_decimal_reset(json_dec->decimal, value);
 }
 
-void json_boolean_reset(JSON json_wrap, bool value) {
-    if (!__TYPE_GUARD(json_wrap, JSON_BOOLEAN, __LINE__)) exit(EXIT_FAILURE);
+void json_boolean_reset(JSON json_bool, bool value) {
+    if (!__TYPE_GUARD(json_bool, JSON_BOOLEAN, __LINE__)) exit(EXIT_FAILURE);
 
-    _json_BOOL_reset(json_wrap->boolean, value);
+    _json_internal_boolean_reset(json_bool->boolean, value);
 }
 
-void json_string_reset(JSON json_wrap, const c_str value) {
-    if (!__TYPE_GUARD(json_wrap, JSON_STRING, __LINE__)) exit(EXIT_FAILURE);
+void json_string_reset(JSON json_str, const c_str value) {
+    if (!__TYPE_GUARD(json_str, JSON_STRING, __LINE__)) exit(EXIT_FAILURE);
 
-    _json_internal_string_free(json_wrap->string);
-    json_wrap->string = _json_internal_string_alloc(value, strlen(value));
+    _json_internal_string_free(json_str->string);
+    json_str->string = _json_internal_string_alloc(value, strlen(value));
 }
 
 
@@ -921,7 +931,7 @@ void _writef_line(Writer* writer, const c_str message) {
 
 /* Print objects */
 
-void _json_INT_write(Writer* writer, _Integer integer) {
+void _json_internal_integer_write(Writer* writer, _Integer integer) {
     writer_writef(writer, __JSON_INTEGER_PRINT_FMT, integer->value);
 }
 
@@ -929,11 +939,11 @@ void _json_internal_decimal_write(Writer* writer, _Decimal decimal) {
     writer_writef(writer, __JSON_DOUBLE_PRINT_FMT, decimal->value);
 }
 
-void _json_STR_write(Writer* writer, _String string) {
+void _json_internal_string_write(Writer* writer, _String string) {
     writer_writef(writer, __JSON_STRING_PRINT_FMT, string->value);
 }
 
-void _json_BOOL_write(Writer* writer, _Boolean boolean) {
+void _json_internal_boolean_write(Writer* writer, _Boolean boolean) {
     writer_writef(writer, "%s", __JSON_BOOL_TO_STRING(boolean->value));
 }
 
@@ -998,7 +1008,7 @@ void _indent_json_object_wrap_write(Writer* writer, size_t depth, JSON json_wrap
     switch(json_wrap->type) {
 
         case JSON_INTEGER:
-            _json_INT_write(writer, json_wrap->integer);
+            _json_internal_integer_write(writer, json_wrap->integer);
         break;
 
         case JSON_DECIMAL:
@@ -1006,11 +1016,11 @@ void _indent_json_object_wrap_write(Writer* writer, size_t depth, JSON json_wrap
         break;
 
         case JSON_BOOLEAN:
-            _json_BOOL_write(writer, json_wrap->boolean);
+            _json_internal_boolean_write(writer, json_wrap->boolean);
         break;
 
         case JSON_STRING:
-            _json_STR_write(writer, json_wrap->string);
+            _json_internal_string_write(writer, json_wrap->string);
         break;
 
         case JSON_NULL:
@@ -1031,6 +1041,14 @@ void json_write(Writer* writer, JSON json_wrap) {
     _indent_json_object_wrap_write(writer, 0, json_wrap);
     _writef_line(writer, "");
 }
+
+
+
+/*  
+    ================================
+     Parsing -- All   
+    ================================
+*/ 
 
 
 
