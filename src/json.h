@@ -307,7 +307,7 @@ struct _json_object_wrap {
 
 int __ALLOC_FAILED_GUARD(void* ptr, size_t line) {
     if (!(ptr)) {
-        fprintf(stderr, "Memory allocation failed at %s:%d\n", __FILE__, line);
+        fprintf(stderr, "Memory allocation error at %s:%d\n", __FILE__, line);
         return 0;
     }
     return 1;
@@ -315,7 +315,7 @@ int __ALLOC_FAILED_GUARD(void* ptr, size_t line) {
 
 int __ALLOC_FAILED_GUARD_FREE(void* ptr, void* cleanup, size_t line) {
     if (!ptr) {
-        fprintf(stderr, "Memory allocation failed at %s:%d\n", __FILE__, line);
+        fprintf(stderr, "Memory allocation error at %s:%d\n", __FILE__, line);
         free(cleanup);
         return 0;
     }
@@ -324,7 +324,7 @@ int __ALLOC_FAILED_GUARD_FREE(void* ptr, void* cleanup, size_t line) {
 
 int __ALLOC_FAILED_GUARD_MULTIOBJECT(void* ptr, size_t line) {
     if (!ptr) {
-        fprintf(stderr, "Memory reallocation failed at %s:%d\n", __FILE__, line);
+        fprintf(stderr, "Memory reallocation error at %s:%d\n", __FILE__, line);
         return 0;
     }
     return 1;
@@ -332,7 +332,7 @@ int __ALLOC_FAILED_GUARD_MULTIOBJECT(void* ptr, size_t line) {
 
 int __TYPE_GUARD(JSON ptr, JSONType type, size_t line) {
     if (!(ptr && ptr->type == type)) {
-        fprintf(stderr, "Type guard failed at %s:%d\n", __FILE__, line);
+        fprintf(stderr, "Type guard error at %s:%d\n", __FILE__, line);
         return 0;
     }
     return 1;
@@ -620,7 +620,7 @@ void json_free(JSON json_wrap) {
             break;
 
             default:
-                fprintf(stderr, "Memory free failed for json_wrap at %s:%d\n", __FILE__, __LINE__);
+                fprintf(stderr, "Memory free error for json_wrap at %s:%d\n", __FILE__, __LINE__);
                 return;
         }
 
@@ -694,7 +694,7 @@ JSON json_copy(JSON json_wrap) {
             return json_null_alloc();
 
         default:
-            fprintf(stderr, "Copy failed for json_wrap at %s:%d\n", __FILE__, __LINE__);
+            fprintf(stderr, "Copy error for json_wrap at %s:%d\n", __FILE__, __LINE__);
             return NULL;
     }
 
@@ -1049,6 +1049,43 @@ void json_write(Writer* writer, JSON json_wrap) {
      Parsing -- All   
     ================================
 */ 
+
+char* _read_file_content(const char* filename);
+
+
+char* _read_file_content(const char* filename) {
+
+    FILE *file = fopen(filename, "rb");
+    if (!file) {
+        fprintf(stderr, "File open error at %s:%d\n", __FILE__, __LINE__);
+        return NULL;
+    }
+
+    fseek(file, 0, SEEK_END);
+    size_t length = ftell(file);
+    rewind(file);
+
+    char *buffer = malloc(length + 1);
+    if (!buffer) {
+        fclose(file);
+        fprintf(stderr, "Buffer allocation error at %s:%d\n", __FILE__, __LINE__);
+        return NULL;
+    }
+
+    size_t bytesRead = fread(buffer, sizeof(char), length, file);
+    if (bytesRead != length) {
+        free(buffer);
+        fclose(file);
+        fprintf(stderr, "File read error (%d/%d bytes) at %s:%d\n", bytesRead, length, __FILE__, __LINE__);
+        return NULL;
+    }
+    
+    buffer[length] = '\0';
+
+    fclose(file);
+    return buffer;
+}
+
 
 
 
