@@ -111,6 +111,7 @@ void writer_stdout_init(Writer* writer);
 int  writer_file_init(Writer* writer, const c_str filename);
 void writer_file_close(Writer* writer);
 void writer_writef(Writer* writer, const c_str message, ...);
+void writer_swrite(Writer* writer, const c_str fmt, const c_str message);
 
 /* Internal type safety */
 int __ALLOC_FAILED_GUARD(void* ptr, size_t line);
@@ -210,6 +211,12 @@ bool json_is(JSON json_wrap, JSON other_wrap);
 bool json_eq(JSON json_wrap, JSON other_wrap);
 
 
+/* Parsing */
+
+bool _get_escaped_char(char c, char* ec);
+char _get_escape_code(char c); 
+
+
 /*  
     ================================
      Writing    
@@ -240,6 +247,44 @@ void writer_writef(Writer* writer, const c_str message, ...) {
         va_start(args, message);
         vfprintf(writer->stream, message, args);
         va_end(args);
+    }
+}
+
+// Safe write for escape codes
+void writer_swrite(Writer* writer, const c_str fmt, const c_str message) {
+    if (writer && writer->stream) {
+
+        char* it = message;
+        int escaped = 0;
+        while (*it != '\0') {
+            char ec;
+            if (_get_escaped_char(*it, &ec)) {
+                escaped++;
+            }
+            it++;
+        }
+
+        size_t len = (it - message) + escaped;
+        printf("len::%d", len);
+        char* new_message = malloc(len + 1);
+        if (!__ALLOC_FAILED_GUARD(new_message, __LINE__)) exit(EXIT_FAILURE);
+        new_message[len] = '\0';
+
+        it = message;
+        size_t copy_it = 0;
+        while (copy_it < len) {
+            char ec;
+            if (_get_escaped_char(*it, &ec)) {
+                new_message[copy_it++] = '\\';
+                new_message[copy_it++] = ec;
+                it++;
+            } else {
+                new_message[copy_it++] = *(it++);
+            }
+        }
+        
+        fprintf(writer->stream, fmt, new_message);
+        free(new_message);
     }
 }
 
@@ -947,7 +992,7 @@ void _json_internal_decimal_write(Writer* writer, _Decimal decimal) {
 }
 
 void _json_internal_string_write(Writer* writer, _String string) {
-    writer_writef(writer, __JSON_STRING_PRINT_FMT, string->value);
+    writer_swrite(writer, __JSON_STRING_PRINT_FMT, string->value);
 }
 
 void _json_internal_boolean_write(Writer* writer, _Boolean boolean) {
@@ -992,7 +1037,8 @@ void _indent_json_internal_object_write(Writer* writer, size_t depth, _Object ob
         _KeyValue kv = object->pairs[i];
 
         _writef_indent(writer, depth+1);
-        writer_writef(writer, __JSON_KEY_PRINT_FMT, kv->key);
+
+        writer_swrite(writer, __JSON_KEY_PRINT_FMT, kv->key);
         writer_writef(writer, __JSON_KEY_TO_VALUE);
         _indent_json_object_wrap_write(writer, depth+1, kv->value);
         if (object->keys > 1)
@@ -1001,7 +1047,7 @@ void _indent_json_internal_object_write(Writer* writer, size_t depth, _Object ob
 
     _KeyValue kv = object->pairs[object->keys-1];
     _writef_indent(writer, depth+1);
-    writer_writef(writer, __JSON_KEY_PRINT_FMT, kv->key);
+    writer_swrite(writer, __JSON_KEY_PRINT_FMT, kv->key);
     writer_writef(writer, __JSON_KEY_TO_VALUE);
     _indent_json_object_wrap_write(writer, depth+1, kv->value);
 
@@ -1114,6 +1160,26 @@ typedef struct {
 
 
 
+bool _get_escaped_char(char c, char* ec) {
+    switch (c) {
+        case '\a': *ec = 'a';  break;  // Bell (alert)
+        case '\b': *ec = 'b';  break;  // Backspace
+        case '\f': *ec = 'f';  break;  // Formfeed
+        case '\n': *ec = 'n';  break;  // Newline
+        case '\r': *ec = 'r';  break;  // Carriage return
+        case '\t': *ec = 't';  break;  // Horizontal tab
+        case '\v': *ec = 'v';  break;  // Vertical tab
+        case '\\': *ec = '\\'; break;  // Backslash
+        case '\'': *ec = '\''; break;  // Single quote
+        case '\"': *ec = '\"'; break;  // Double quote
+        case '\?': *ec = '?';  break;  // Question mark
+        case '\0': *ec = '0';  break;  // Null character
+        default: {
+            return false;
+        }
+    }
+    return true;
+}
 
 char _get_escape_code(char c) {
     switch (c) {
