@@ -1361,23 +1361,22 @@ _json_token* _json_lex(char* filestr, size_t* len) {
 
         // Lexical analysis
 
+        // Note: This if-else skeleton is very odd but I really like 
+        // the control flow that looks like GOTO while being a somewhat safer
+
         if (_json_lex_number(&filestr, &token)) {
 
-        }
-        else if (_json_lex_string(&filestr, &token)) {
+        } else if (_json_lex_string(&filestr, &token)) {
 
-        }
-        else if (_json_lex_boolean(&filestr, &token)) {
+        } else if (_json_lex_boolean(&filestr, &token)) {
 
-        }
-        else if (_json_lex_null(&filestr, &token)) {
+        } else if (_json_lex_null(&filestr, &token)) {
 
-        }
-        else if (_json_lex_structural(&filestr, &token)) {
+        } else if (_json_lex_structural(&filestr, &token)) {
 
-        }
-        else {
+        } else {
             printf("Lexer error following %d:%d\n", line_count, (int)(filestr - line_start));
+            _json_free_tokens(tokens, tokens_size);
             return NULL;
         }
 
@@ -1387,7 +1386,8 @@ _json_token* _json_lex(char* filestr, size_t* len) {
             size_t new_capacity = tokens_cap * 2;
             _json_token* new_tokens = realloc(tokens, new_capacity * sizeof(_json_token));
             if (!__ALLOC_FAILED_GUARD_MULTIOBJECT(new_tokens, __LINE__)) {
-                exit(EXIT_FAILURE);
+                _json_free_tokens(tokens, tokens_size);
+                return NULL;
             }
 
             tokens_cap = new_capacity;
