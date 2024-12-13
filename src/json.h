@@ -152,7 +152,7 @@ JSON json_array_alloc();
 void json_free(JSON json_wrap);
 
 /* API Utilities */
-void json_add_key_value(JSON json_wrap, const c_str key, JSON value);
+bool json_add_key_value(JSON json_wrap, const c_str key, JSON value);
 void json_push(JSON json_wrap, JSON value);
 void json_foreach(JSON json_wrap, void (*func)(JSON));
 JSON json_reduceint(JSON json_wrap, int64_t accumulator, int64_t (*func)(JSON, int64_t));
@@ -707,21 +707,28 @@ JSON json_copy(JSON json_wrap) {
     ================================
 */ 
 
-void json_add_key_value(JSON json_obj, const c_str key, JSON value) {
-    if (!__TYPE_GUARD(json_obj, JSON_OBJECT, __LINE__)) return;
+bool json_add_key_value(JSON json_obj, const c_str key, JSON value) {
+    if (!__TYPE_GUARD(json_obj, JSON_OBJECT, __LINE__)) return false;
 
     _Object ob = json_obj->object;
+
+    for (size_t i = 0; i < ob->keys; i++) {
+        if (strcmp(ob->pairs[i]->key, key) == 0) {
+            return false;
+        }
+    }
 
     if (ob->keys == ob->_capacity) {
         size_t new_capacity = ob->_capacity * 2;
         _KeyValue* new_pairs = realloc(ob->pairs, new_capacity * sizeof(_KeyValue));
-        if (!__ALLOC_FAILED_GUARD_MULTIOBJECT(new_pairs, __LINE__)) return;
+        if (!__ALLOC_FAILED_GUARD_MULTIOBJECT(new_pairs, __LINE__)) return false;
 
         ob->_capacity = new_capacity;
         ob->pairs = new_pairs;
     }
 
-    ob->pairs[ob->keys++] = _json_internal_kv_alloc(key, strlen(key), value);    
+    ob->pairs[ob->keys++] = _json_internal_kv_alloc(key, strlen(key), value);
+    return true;    
 }
 
 JSON* json_get(JSON json_obj, const c_str key) {
@@ -1045,12 +1052,101 @@ void json_write(Writer* writer, JSON json_wrap) {
 
 
 /*  
-    ================================
+    ================================================================
+    ================================================================
+
+     
      Parsing -- All   
-    ================================
+    
+    ================================================================
+    ================================================================
+
 */ 
 
-char* _read_file_content(const char* filename);
+#define __JSON_IS_WHITESPACE(c)  ((c) == ' ' || (c) == '\t' || (c) == '\n' || (c) == '\r' || (c) == '\f' || (c) == '\v')
+#define __JSON_IS_NUMBER_CHAR(c) ((c) == '+' || (c) ==  '-' || (c) ==  'E' || (c) ==  'e' || (c) ==  '.' || ((c) >=  '0' && (c) <=  '9'))
+
+#define __JSON_BUFFER_INITIAL_CAP 64
+
+
+const char* _json_token_names[] = {
+    "TOKEN_INTEGER",
+    "TOKEN_DECIMAL",
+    "TOKEN_STRING",
+    "TOKEN_BOOLEAN",
+    "TOKEN_NULL",
+    "TOKEN_LBRACE",
+    "TOKEN_RBRACE",
+    "TOKEN_LBRACKET",
+    "TOKEN_RBRACKET",
+    "TOKEN_COMMA",
+    "TOKEN_COLON"
+};
+
+// ^                   ^
+//   Keep both aligned
+// v                   v
+
+typedef enum {
+    TOKEN_INTEGER,
+    TOKEN_DECIMAL,
+    TOKEN_STRING,
+    TOKEN_BOOLEAN, //OK
+    TOKEN_NULL, //OK
+    TOKEN_LBRACE,
+    TOKEN_RBRACE,
+    TOKEN_LBRACKET,
+    TOKEN_RBRACKET,
+    TOKEN_COMMA,
+    TOKEN_COLON
+} _json_token_type;
+
+
+typedef struct {
+    _json_token_type type;
+    union {
+        const char* strlit;
+        int64_t integer; // bad alignment on x32
+        double decimal;
+        bool boolean;
+    };
+} _json_token;
+
+
+
+
+char _get_escape_code(char c) {
+    switch (c) {
+        case 'a': return '\a';  // Bell (alert)
+        case 'b': return '\b';  // Backspace
+        case 'f': return '\f';  // Formfeed
+        case 'n': return '\n';  // Newline
+        case 'r': return '\r';  // Carriage return
+        case 't': return '\t';  // Horizontal tab
+        case 'v': return '\v';  // Vertical tab
+        case '\\': return '\\'; // Backslash
+        case '\'': return '\''; // Single quote
+        case '\"': return '\"'; // Double quote
+        case '?': return '\?';  // Question mark
+        case '0': return '\0';  // Null character
+        default: {
+            fprintf(stderr, "Encountered unknown escape sequence");
+            exit(EXIT_FAILURE);
+        }
+    }
+}
+
+
+void _json_free_tokens(_json_token* tokens, size_t len) {
+
+    for (size_t i = 0; i < len; i++) {
+        if (tokens[i].type == TOKEN_STRING) {
+            free((void*)tokens[i].strlit);
+        }
+    }
+
+    free(tokens);
+}
 
 
 char* _read_file_content(const char* filename) {
@@ -1065,28 +1161,276 @@ char* _read_file_content(const char* filename) {
     size_t length = ftell(file);
     rewind(file);
 
-    char *buffer = malloc(length + 1);
-    if (!buffer) {
+    char *file_cstr = malloc(length + 1);
+    if (!file_cstr) {
         fclose(file);
-        fprintf(stderr, "Buffer allocation error at %s:%d\n", __FILE__, __LINE__);
+        fprintf(stderr, "file_cstr allocation error at %s:%d\n", __FILE__, __LINE__);
         return NULL;
     }
 
-    size_t bytesRead = fread(buffer, sizeof(char), length, file);
+    size_t bytesRead = fread(file_cstr, sizeof(char), length, file);
     if (bytesRead != length) {
-        free(buffer);
+        free(file_cstr);
         fclose(file);
         fprintf(stderr, "File read error (%d/%d bytes) at %s:%d\n", bytesRead, length, __FILE__, __LINE__);
         return NULL;
     }
     
-    buffer[length] = '\0';
+    file_cstr[length] = '\0';
 
     fclose(file);
-    return buffer;
+    return file_cstr;
 }
 
 
+bool _json_lex_number(char** filestr_ptr, _json_token* token) {
+
+    char* peek = *filestr_ptr;
+    while (__JSON_IS_NUMBER_CHAR(*peek)) {
+        peek++;
+    }
+
+    size_t len = peek - *filestr_ptr;
+
+    if (len > 0) {
+
+        char* numstr = malloc(len + 1);
+        if (!__ALLOC_FAILED_GUARD(numstr, __LINE__)) return false;
+
+        memcpy(numstr, *filestr_ptr, len);
+        numstr[len] = '\0';
+
+        char* end;
+        double number = strtod(numstr, &end);
+
+        char final = *end;
+        free(numstr);
+
+        if (final != '\0') return false;
+        
+        // Look for fractional part
+        if (number == (int)number) {
+            token->type = TOKEN_INTEGER;
+            token->integer = (int64_t)number;
+        } else {
+            token->type = TOKEN_DECIMAL;
+            token->decimal = (double)number;
+        }
+
+        *filestr_ptr = peek;
+        return true;
+    } 
+
+    return false;
+}
+
+bool _json_lex_string(char** filestr_ptr, _json_token* token) {
+
+    if (**filestr_ptr != '"') return false;
+
+    char* peek = *filestr_ptr + 1;
+    int escaped = 0;
+
+    // Get number of escaped
+    while (*peek && *peek != '"')
+    {
+        if (*peek == '\\') {
+            escaped++;
+            peek++;
+        }
+        peek++;
+    }
+    
+    if (*peek != '"') return false;
+
+    // Allocate string
+    size_t len = (peek - (*filestr_ptr + 1)) - escaped;
+    peek = *filestr_ptr + 1;
+
+    char* str = malloc(len + 1);
+    if (!__ALLOC_FAILED_GUARD(str, __LINE__)) return false;
+    str[len] = '\0';
+
+    size_t it = 0;
+    while (it < len) {
+        if (*peek == '\\') {
+            peek++;
+            str[it++] = _get_escape_code(*(peek++));
+        }
+        else {
+            str[it++] = *(peek++);
+        }
+    }
+
+    // Skip the final quote
+    *filestr_ptr = peek + 1;
+    token->type = TOKEN_STRING;
+    token->strlit = str;
+
+    return true;
+}
+
+bool _json_lex_boolean(char** filestr_ptr, _json_token* token) {
+
+    if (strncasecmp(*filestr_ptr, "true", 4) == 0) {
+        token->type = TOKEN_BOOLEAN;
+        token->boolean = true;
+        *filestr_ptr += 4;
+        return true;
+    } 
+    else if (strncasecmp(*filestr_ptr, "false", 5) == 0) {
+        token->type = TOKEN_BOOLEAN;
+        token->boolean = false;
+        *filestr_ptr += 5;
+        return true;
+    }
+
+    return false;
+}
+
+bool _json_lex_null(char** filestr_ptr, _json_token* token) {
+
+    if (strncasecmp(*filestr_ptr, "null", 4) == 0) {
+        token->type = TOKEN_NULL;
+        *filestr_ptr += 4;
+        return true;
+    }
+
+    return false;
+}
+
+bool _json_lex_structural(char** filestr_ptr, _json_token* token) {
+
+    switch (**filestr_ptr) {
+        case '{': {
+            token->type = TOKEN_LBRACE;
+            *filestr_ptr += 1;
+            break;
+        }
+        case '}': {
+            token->type = TOKEN_RBRACE;
+            break;
+        }
+        case '[': {
+            token->type = TOKEN_LBRACKET;
+            break;
+        }
+        case ']': {
+            token->type = TOKEN_RBRACKET;
+            break;
+        }
+        case ',': {
+            token->type = TOKEN_COMMA;
+            break;
+        }
+        case ':': {
+            token->type = TOKEN_COLON;
+            break;
+        }
+        default: return false;
+    }
+
+    *filestr_ptr += 1;
+    return true;
+}
+
+_json_token* _json_lex(char* filestr, size_t* len) {
+
+    // Debugging
+    char* line_start = filestr;
+    size_t line_count = 1;
+
+    // Tokens
+    size_t tokens_cap = __JSON_BUFFER_INITIAL_CAP;
+    size_t tokens_size = 0;
+    _json_token* tokens = malloc(tokens_cap * sizeof(_json_token));
+
+    while (*filestr) {
+
+        _json_token token = {0};
+
+        // Jump
+
+        while (__JSON_IS_WHITESPACE(*filestr)) {
+            if (*filestr == '\n') {
+                line_count++;
+                line_start = filestr;
+            }
+            filestr++;
+        }
+
+        // Lexical analysis
+
+        if (_json_lex_number(&filestr, &token)) {
+
+        }
+        else if (_json_lex_string(&filestr, &token)) {
+
+        }
+        else if (_json_lex_boolean(&filestr, &token)) {
+
+        }
+        else if (_json_lex_null(&filestr, &token)) {
+
+        }
+        else if (_json_lex_structural(&filestr, &token)) {
+
+        }
+        else {
+            printf("Lexer error following %d:%d\n", line_count, (int)(filestr - line_start));
+            return NULL;
+        }
+
+        // Push new token
+        if (tokens_size == tokens_cap) {
+
+            size_t new_capacity = tokens_cap * 2;
+            _json_token* new_tokens = realloc(tokens, new_capacity * sizeof(_json_token));
+            if (!__ALLOC_FAILED_GUARD_MULTIOBJECT(new_tokens, __LINE__)) {
+                exit(EXIT_FAILURE);
+            }
+
+            tokens_cap = new_capacity;
+            tokens = new_tokens;
+        }
+
+        tokens[tokens_size++] = token;
+    }
+
+    *len = tokens_size;
+    return tokens;
+}
+
+
+JSON _json_parse_tokens(_json_token* tokens, size_t len) {
+    return NULL;
+}
+
+
+
+
+JSON json_parse_string(char* _cstr) {
+
+    size_t len;
+    _json_token* tokens = _json_lex(_cstr, &len);
+    if (!tokens) return NULL;
+
+    JSON ret = _json_parse_tokens(tokens, len);
+    _json_free_tokens(tokens, len);
+
+    return ret;
+}
+
+JSON json_parse_file(const char* filename) {
+
+    char* file_cstr = _read_file_content(filename);
+    if (!file_cstr) return NULL;
+
+    JSON ret = json_parse_string(file_cstr);
+    free(file_cstr);
+
+    return ret;
+}
 
 
 #endif // JSON_C
