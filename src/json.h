@@ -1407,8 +1407,6 @@ JSON _json_parse_tokens(_json_token* tokens, size_t len) {
 }
 
 
-
-
 JSON json_parse_string(char* _cstr) {
 
     size_t len;
