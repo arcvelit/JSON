@@ -1,5 +1,3 @@
-//#define __JSON_FREE_DEBUG
-
 #include "../json.h" 
 
 
@@ -11,8 +9,8 @@ int main()
 
     JSON findstr = json_string_alloc("Hello, World!");
 
-    json_push(array, json_integer_alloc(2));
-    json_push(array, json_integer_alloc(124));
+    json_push(array, json_number_alloc(2));
+    json_push(array, json_number_alloc(124));
     json_push(array, json_string_alloc("Hello"));
     json_push(array, json_copy(findstr));
 

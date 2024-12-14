@@ -1,18 +1,17 @@
-//#define __JSON_FREE_DEBUG
-
 #include "../json.h" 
 
 
 int main()
 {
-    // Demo setup
+    // Replace a JSON object by another while freeing
+
     JSON object = json_object_alloc();
-    json_add_key_value(object, "Hello", json_integer_alloc(3));
+    json_add_key_value(object, "Hello", json_number_alloc(3));
 
     JSON array = json_array_alloc();
     json_push(array, json_null_alloc());
 
-    // The integer 3 gets freed and replaced by this array
+    // The number 3 gets freed and replaced by this array
     json_reassign(json_get(object, "Hello"), array);
 
     // Print and free
