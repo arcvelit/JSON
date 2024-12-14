@@ -154,12 +154,26 @@ typedef struct {
     size_t _cap;
 } _string_builder;
 
+// Allocates initial buffer
 void  sb_init(_string_builder* sb);
+
+// Append a sized char buffer
 void  sb_append_buffer(_string_builder* sb, const char* buf, size_t size);
+
+// Append a null-terminated char array
 void  sb_append_cstr(_string_builder* sb, const c_str str);
+
+// Append single char
 void  sb_append_char(_string_builder* sb, const char c);
+
+// Transfers ownership of string
 char* sb_tostring_alloc(_string_builder* sb);
+
+// Transfers ownership of string
+// Discards the string builder for you
 char* sb_collapse_alloc(_string_builder* sb);
+
+// Discards the string builder
 void  sb_free(_string_builder* sb);
 
 void sb_init(_string_builder* sb) {
@@ -212,7 +226,6 @@ void sb_append_char(_string_builder* sb, const char c) {
     sb->items[sb->size++] = c;
 }
 
-// Free the returned string
 char* sb_tostring_alloc(_string_builder* sb) {
 
     char* copy = malloc(sb->size + 1);
@@ -220,21 +233,24 @@ char* sb_tostring_alloc(_string_builder* sb) {
 
     memcpy(copy, sb->items, sb->size);
     copy[sb->size] = '\0';
+
     return copy;
 }
 
-// Free the returned string
-// Will free the string buffer
 char* sb_collapse_alloc(_string_builder* sb) {
 
-    char* str = sb_tostring_alloc(sb);
-    sb_free(sb);
+    char* str = realloc(sb->items, sb->size + 1);
+    RAM_ASSERT(str);
+    str[sb->size] = '\0';
+
+    sb->items = NULL;
     return str;
 }
 
 void sb_free(_string_builder* sb) {
     if (sb && sb->items) {
         free(sb->items);
+        sb->items = NULL;
     }
 }
 
