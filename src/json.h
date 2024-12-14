@@ -340,6 +340,7 @@ void  json_reassign(JSON* json_wrap_ptr, JSON new_wrap);
 
 /* API Predicates */
 bool json_isnull(JSON json_wrap);
+bool json_isnum(JSON json_wrap);
 bool json_isint(JSON json_wrap);
 bool json_isdec(JSON json_wrap);
 bool json_isstr(JSON json_wrap);
@@ -441,7 +442,7 @@ struct _json_string {       /* JSON_STRING  PRIMITIVE   */
     size_t  size;
 };
 
-struct _json_number {      /* JSON_NUMBER  PRIMITIVE    */
+struct _json_number {      /* JSON_NUMBER   PRIMITIVE   */
     double  value;
 };
 
@@ -1050,8 +1051,6 @@ void _writef_line(Writer* writer, const c_str message) {
     writer_writef(writer, "%s\n", message);
 }
 
-/* Print objects */
-
 void _json_internal_number_write(Writer* writer, _Number number) {
     writer_writef(writer, __JSON_NUMBER_PRINT_FMT, number->value);
 }
@@ -1157,20 +1156,11 @@ void json_write(Writer* writer, JSON json_wrap) {
 }
 
 
-
 /*  
-    ================================================================
-    ================================================================
-
-     
-     Parsing -- All   
-    
-    ================================================================
-    ================================================================
-
+    ================================
+     Parsing   
+    ================================
 */ 
-
-// Parse funcs =========================================
 
 bool _get_escaped_char(char c, char* ec) {
     switch (c) {
