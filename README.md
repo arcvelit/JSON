@@ -53,8 +53,9 @@ int main() {
 
   Writer writer = {0};
   writer_stdout_init(&writer);
-
+  
   json_write(&writer, array);
+  json_free(array);
 
   return 0;
 }
