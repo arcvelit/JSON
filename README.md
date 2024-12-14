@@ -46,15 +46,16 @@ Start by including the header. You can allocate a new array and print the format
 int main() {
 
   JSON array = json_array_alloc();
-  json_push(array, json_integer_alloc(3));
-  json_push(array, json_decimal_alloc(0.7525));
+  json_push(array, json_number_alloc(3));
+  json_push(array, json_number_alloc(0.7525));
   json_push(array, json_boolean_alloc(true));
   json_push(array, json_string_alloc("program"));
 
   Writer writer = {0};
   writer_stdout_init(&writer);
-
+  
   json_write(&writer, array);
+  json_free(array);
 
   return 0;
 }
