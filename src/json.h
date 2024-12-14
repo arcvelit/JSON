@@ -937,6 +937,7 @@ JSON json_reducebool(JSON json_array, bool accumulator, bool (*func)(JSON, bool)
     return json_boolean_alloc(accumulator);
 }
 
+
 /*  
     ================================
      Predicates   
@@ -1002,6 +1003,7 @@ bool json_eq(JSON json_wrap, JSON other_wrap) {
     }
     return false;
 }
+
 
 /*  
     ================================
