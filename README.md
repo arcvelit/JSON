@@ -62,9 +62,8 @@ int main() {
 Follow the project demos in `/src/demos/` for other examples.
 
 ## TODO
-* Parse JSON from file and string streams (L)
-* Replace integer & decimal by Number type (L)
-* Make it more convenient to work with multi-objects (M)
+* Parse JSON from file and strings (75% done)
+* Make it more convenient to work with multi-objects (optional)
 
 ## Environment
 The source code should be **highly portable** and compatible with C99 and later standards. This limitation permits the convenience
