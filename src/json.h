@@ -3,11 +3,13 @@
 
 #include <inttypes.h>
 #include <stdbool.h>
+#include <assert.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+
 
 /*  
     ================================
@@ -42,6 +44,12 @@
 #else
     #define __FREE_DEBUG_PRINT(MESSAGE)
 #endif
+
+#define __JSON_IS_WHITESPACE(c)  ((c) == ' ' || (c) == '\t' || (c) == '\n' || (c) == '\r' || (c) == '\f' || (c) == '\v')
+#define __JSON_IS_NUMBER_CHAR(c) ((c) == '+' || (c) ==  '-' || (c) ==  'E' || (c) ==  'e' || (c) ==  '.' || ((c) >=  '0' && (c) <=  '9'))
+
+#define __JSON_BUFFER_INITIAL_CAP 64
+#define __JSON_STR_INITIAL_CAP
 
 
 /*  
@@ -87,6 +95,48 @@ typedef enum {
     JSON_NULL,
 } JSONType;
 
+const char* _json_token_names[] = {
+    "TOKEN_INTEGER",
+    "TOKEN_DECIMAL",
+    "TOKEN_STRING",
+    "TOKEN_BOOLEAN",
+    "TOKEN_NULL",
+    "TOKEN_LBRACE",
+    "TOKEN_RBRACE",
+    "TOKEN_LBRACKET",
+    "TOKEN_RBRACKET",
+    "TOKEN_COMMA",
+    "TOKEN_COLON"
+};
+
+// ^                   ^
+//   Keep both aligned
+// v                   v
+
+typedef enum {
+    TOKEN_INTEGER,
+    TOKEN_DECIMAL,
+    TOKEN_STRING,
+    TOKEN_BOOLEAN,
+    TOKEN_NULL,
+    TOKEN_LBRACE,
+    TOKEN_RBRACE,
+    TOKEN_LBRACKET,
+    TOKEN_RBRACKET,
+    TOKEN_COMMA,
+    TOKEN_COLON
+} _json_token_type;
+
+typedef struct {
+    _json_token_type type;
+    union {
+        const char* strlit;
+        int64_t integer; // bad alignment on x32
+        double decimal;
+        bool boolean;
+    };
+} _json_token;
+
 typedef enum {
     WRITER_STDOUT,
     WRITER_FILE,
@@ -96,6 +146,103 @@ struct _json_writer {
     _WriterType type;
     FILE* stream;
 };
+
+
+// String Builder ======================================
+
+#define RAM_ASSERT(expr) assert((expr) && "Buy more RAM lol")
+
+typedef struct {
+    char* items;
+    size_t size;
+    size_t _cap;
+} _string_builder;
+
+void  sb_init(_string_builder* sb);
+void  sb_append_buffer(_string_builder* sb, const char* buf, size_t size);
+void  sb_append_cstr(_string_builder* sb, const c_str str);
+void  sb_append_char(_string_builder* sb, const char c);
+char* sb_tostring_alloc(_string_builder* sb);
+char* sb_collapse_alloc(_string_builder* sb);
+void  sb_free(_string_builder* sb);
+
+void sb_init(_string_builder* sb) {
+
+    sb->items = malloc(__JSON_MULTIOBJECT_INITIAL_CAP);
+    RAM_ASSERT(sb->items);
+
+    sb->_cap = __JSON_MULTIOBJECT_INITIAL_CAP;
+    sb->size = 0;
+}
+
+void sb_append_buffer(_string_builder* sb, const char* buf, size_t size) {
+    
+    size_t new_size = sb->size + size;
+
+    if (new_size > sb->_cap) {
+
+        size_t new_capacity = sb->_cap * 2;
+        while (new_capacity < new_size) new_capacity *= 2;
+
+        char* new_items = realloc(sb->items, new_capacity);
+        RAM_ASSERT(new_items);
+
+        sb->_cap = new_capacity;
+        sb->items = new_items;
+    }
+
+    memcpy(sb->items + sb->size, buf, size);
+    sb->size = new_size;
+}
+
+void sb_append_cstr(_string_builder* sb, const c_str str) {
+
+    size_t size = strlen(str);
+    sb_append_buffer(sb, str, size);
+}
+
+void sb_append_char(_string_builder* sb, const char c) {
+
+    if (sb->size == sb->_cap) {
+
+        size_t new_capacity = sb->_cap * 2;
+        char* new_items = realloc(sb->items, new_capacity);
+        RAM_ASSERT(new_items);
+
+        sb->_cap = new_capacity;
+        sb->items = new_items;
+    }
+
+    sb->items[sb->size++] = c;
+}
+
+// Free the returned string
+char* sb_tostring_alloc(_string_builder* sb) {
+
+    char* copy = malloc(sb->size + 1);
+    RAM_ASSERT(copy);
+
+    memcpy(copy, sb->items, sb->size);
+    copy[sb->size] = '\0';
+    return copy;
+}
+
+// Free the returned string
+// Will free the string buffer
+char* sb_collapse_alloc(_string_builder* sb) {
+
+    char* str = sb_tostring_alloc(sb);
+    sb_free(sb);
+    return str;
+}
+
+void sb_free(_string_builder* sb) {
+    if (sb && sb->items) {
+        free(sb->items);
+    }
+}
+
+// =====================================================
 
 
 /*  
@@ -113,7 +260,14 @@ void writer_file_close(Writer* writer);
 void writer_writef(Writer* writer, const c_str message, ...);
 void writer_swrite(Writer* writer, const c_str fmt, const c_str message);
 
-/* Internal type safety */
+/* Internal writing */
+void _writef_indent(Writer* writer, size_t depth);
+void _writef_line(Writer* writer, const c_str message);
+
+/* Internal reading */
+char* _read_file_content(const char* filename);
+
+/* Internal guards */
 int __ALLOC_FAILED_GUARD(void* ptr, size_t line);
 int __ALLOC_FAILED_GUARD_FREE(void* ptr, void* cleanup, size_t line);
 int __ALLOC_FAILED_GUARD_MULTIOBJECT(void* ptr, size_t line);
@@ -127,9 +281,9 @@ _String  _json_internal_string_alloc(const c_str string, size_t size);
 _Object  _json_internal_object_alloc();
 _Array   _json_internal_array_alloc();
 
-_KeyValue   _json_internal_kv_alloc(const c_str key, size_t key_len, JSON json_wrap);
-_KeyValue*  _json_internal_kv_multi_alloc(size_t size);
-JSON*       _json_internal_object_multi_alloc(size_t size);
+_KeyValue _json_internal_kv_alloc(const c_str key, size_t key_len, JSON json_wrap);
+_KeyValue* _json_internal_kv_multi_alloc(size_t size);
+JSON* _json_internal_object_multi_alloc(size_t size);
 
 /* Internal struct deallocators */
 void _json_internal_integer_free(_Integer json_integer);
@@ -159,10 +313,6 @@ void json_foreach(JSON json_wrap, void (*func)(JSON));
 JSON json_reduceint(JSON json_wrap, int64_t accumulator, int64_t (*func)(JSON, int64_t));
 JSON json_reducedec(JSON json_wrap, double accumulator, double (*func)(JSON, double));
 JSON json_reducebool(JSON json_wrap, bool accumulator, bool (*func)(JSON, bool));
-
-/* Internal writing */
-void _writef_indent(Writer* writer, size_t depth);
-void _writef_line(Writer* writer, const c_str message);
 
 void _json_internal_integer_write(Writer* writer, _Integer integer);
 void _json_internal_decimal_write(Writer* writer, _Decimal decimal);
@@ -210,11 +360,26 @@ bool json_isarr(JSON json_wrap);
 bool json_is(JSON json_wrap, JSON other_wrap);
 bool json_eq(JSON json_wrap, JSON other_wrap);
 
+/* Internal lexer */
+bool _json_lex_number(char** filestr_ptr, _json_token* token);
+bool _json_lex_string(char** filestr_ptr, _json_token* token);
+bool _json_lex_boolean(char** filestr_ptr, _json_token* token);
+bool _json_lex_null(char** filestr_ptr, _json_token* token);
+bool _json_lex_structural(char** filestr_ptr, _json_token* token);
+_json_token* _json_lex(char* filestr, size_t* len);
 
-/* Parsing */
+/* Internal lexing utils */
+char* _safe_escape_string_copy(const c_str message);
+bool  _get_escaped_char(char c, char* ec);
+char  _get_escape_code(char c); 
 
-bool _get_escaped_char(char c, char* ec);
-char _get_escape_code(char c); 
+/* Internal parser utils */
+void _json_free_tokens(_json_token* tokens, size_t len);
+JSON _json_parse_tokens(_json_token* tokens, size_t len);
+
+/* API Parsers */
+JSON json_parse_string(char* _cstr);
+JSON json_parse_file(const char* filename);
 
 
 /*  
@@ -252,40 +417,10 @@ void writer_writef(Writer* writer, const c_str message, ...) {
 
 // Safe write for escape codes
 void writer_swrite(Writer* writer, const c_str fmt, const c_str message) {
-    if (writer && writer->stream) {
 
-        char* it = message;
-        int escaped = 0;
-        while (*it != '\0') {
-            char ec;
-            if (_get_escaped_char(*it, &ec)) {
-                escaped++;
-            }
-            it++;
-        }
-
-        size_t len = (it - message) + escaped;
-        printf("len::%d", len);
-        char* new_message = malloc(len + 1);
-        if (!__ALLOC_FAILED_GUARD(new_message, __LINE__)) exit(EXIT_FAILURE);
-        new_message[len] = '\0';
-
-        it = message;
-        size_t copy_it = 0;
-        while (copy_it < len) {
-            char ec;
-            if (_get_escaped_char(*it, &ec)) {
-                new_message[copy_it++] = '\\';
-                new_message[copy_it++] = ec;
-                it++;
-            } else {
-                new_message[copy_it++] = *(it++);
-            }
-        }
-        
-        fprintf(writer->stream, fmt, new_message);
-        free(new_message);
-    }
+    char* new_message = _safe_escape_string_copy(message);
+    writer_writef(writer, fmt, new_message);
+    free(new_message);
 }
 
 
@@ -1109,56 +1244,7 @@ void json_write(Writer* writer, JSON json_wrap) {
 
 */ 
 
-#define __JSON_IS_WHITESPACE(c)  ((c) == ' ' || (c) == '\t' || (c) == '\n' || (c) == '\r' || (c) == '\f' || (c) == '\v')
-#define __JSON_IS_NUMBER_CHAR(c) ((c) == '+' || (c) ==  '-' || (c) ==  'E' || (c) ==  'e' || (c) ==  '.' || ((c) >=  '0' && (c) <=  '9'))
-
-#define __JSON_BUFFER_INITIAL_CAP 64
-
-
-const char* _json_token_names[] = {
-    "TOKEN_INTEGER",
-    "TOKEN_DECIMAL",
-    "TOKEN_STRING",
-    "TOKEN_BOOLEAN",
-    "TOKEN_NULL",
-    "TOKEN_LBRACE",
-    "TOKEN_RBRACE",
-    "TOKEN_LBRACKET",
-    "TOKEN_RBRACKET",
-    "TOKEN_COMMA",
-    "TOKEN_COLON"
-};
-
-// ^                   ^
-//   Keep both aligned
-// v                   v
-
-typedef enum {
-    TOKEN_INTEGER,
-    TOKEN_DECIMAL,
-    TOKEN_STRING,
-    TOKEN_BOOLEAN, //OK
-    TOKEN_NULL, //OK
-    TOKEN_LBRACE,
-    TOKEN_RBRACE,
-    TOKEN_LBRACKET,
-    TOKEN_RBRACKET,
-    TOKEN_COMMA,
-    TOKEN_COLON
-} _json_token_type;
-
-
-typedef struct {
-    _json_token_type type;
-    union {
-        const char* strlit;
-        int64_t integer; // bad alignment on x32
-        double decimal;
-        bool boolean;
-    };
-} _json_token;
-
-
+// Parse funcs =========================================
 
 bool _get_escaped_char(char c, char* ec) {
     switch (c) {
@@ -1202,6 +1288,25 @@ char _get_escape_code(char c) {
     }
 }
 
+// Reveals escape characters with backslash
+char* _safe_escape_string_copy(const c_str message) {
+
+    char esc[2] = {'\\', '\0'};
+    _string_builder sb = {0};
+    sb_init(&sb);
+
+    char* it = message;
+    while(*it != '\0') {
+        if (_get_escaped_char(*it, &esc[1])) {
+            sb_append_buffer(&sb, esc, 2);
+        } else {
+            sb_append_char(&sb, *it);
+        }
+        it++;
+    }
+
+    return sb_collapse_alloc(&sb);
+}
 
 void _json_free_tokens(_json_token* tokens, size_t len) {
 
@@ -1213,7 +1318,6 @@ void _json_free_tokens(_json_token* tokens, size_t len) {
 
     free(tokens);
 }
-
 
 char* _read_file_content(const char* filename) {
 
@@ -1247,7 +1351,6 @@ char* _read_file_content(const char* filename) {
     fclose(file);
     return file_cstr;
 }
-
 
 bool _json_lex_number(char** filestr_ptr, _json_token* token) {
 
@@ -1467,11 +1570,9 @@ _json_token* _json_lex(char* filestr, size_t* len) {
     return tokens;
 }
 
-
 JSON _json_parse_tokens(_json_token* tokens, size_t len) {
     return NULL;
 }
-
 
 JSON json_parse_string(char* _cstr) {
 
