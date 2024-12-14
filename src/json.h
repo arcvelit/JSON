@@ -239,10 +239,15 @@ char* sb_tostring_alloc(_string_builder* sb) {
 
 char* sb_collapse_alloc(_string_builder* sb) {
 
-    char* str = realloc(sb->items, sb->size + 1);
-    RAM_ASSERT(str);
-    str[sb->size] = '\0';
+    char* str;
+    if (sb->size + 1 == sb->_cap) {
+        str = sb->items;
+    } else {
+        str = realloc(sb->items, sb->size + 1);
+        RAM_ASSERT(str);
+    }
 
+    str[sb->size] = '\0';
     sb->items = NULL;
     return str;
 }
