@@ -171,7 +171,6 @@ struct _json_writer {
 
 // String Builder ======================================
 
-
 typedef struct {
     char* items;
     size_t size;
