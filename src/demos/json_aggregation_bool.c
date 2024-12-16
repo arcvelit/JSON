@@ -30,7 +30,10 @@ int main()
 
     json_write(&writer, forall);
     json_write(&writer, exists);
+    
     json_free(list);
+    json_free(forall);
+    json_free(exists);
 
     return EXIT_SUCCESS;
 }

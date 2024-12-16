@@ -27,7 +27,7 @@ int main()
     json_add_key_value(object, "Batman", json_string_alloc("Bruce Wayne"));
     json_add_key_value(object, "Flash", json_string_alloc("Jay Garrick"));
 
-    const c_str hero = "Batman";
+    const char* hero = "Batman";
     JSON* search = json_get(object, hero);
     if (search) {
         printf("%s's actual name is %s\n", hero, (*search)->string->value);

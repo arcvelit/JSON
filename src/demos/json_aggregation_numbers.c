@@ -30,7 +30,10 @@ int main()
 
     json_write(&writer, product);
     json_write(&writer, sum);
+    
     json_free(list);
+    json_free(product);
+    json_free(sum);
 
     return EXIT_SUCCESS;
 }

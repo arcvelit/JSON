@@ -13,6 +13,9 @@ to allow for reading and parsing JSON files to have them in live memory.
 All strings provided to the API must be null-terminated. Same for strings provided by the API. Note that the API only accepts `const char *` for string 
 arguments, and it will make a copy of the string if you are trying to store it in a JSON object.
 
+### Numbers
+All numbers are stored as `double` for simplicity. 
+
 ### Objects
 Everything is wrapped in the 'JSON' type, including primitives. The API is designed so that it handles most of the runtime type 
 checking for you, except in allocations. 
@@ -24,7 +27,7 @@ by using the API free on its parent. For example, if you free an array, all memb
 
 ⚠️ **For this reason, it is not recommended to keep long-lasting references to child objects.**
 
-### Nulls
+### Null
 Null objects are allocated JSON of type JSON_NULL and their object field is NULL.
 
 ### Writing 
@@ -35,7 +38,8 @@ the file writers when they are no longer needed. Plenty of demos show the functi
 Making copies of JSON through the API will create and return deep copies.
 
 ### Debug macros
-The `__JSON_FREE_DEBUG` define instruction prints on the console which type of JSON is being deallocated.
+* The `__JSON_FREE_DEBUG` define instruction logs deallocations of JSON objects.
+* The `__JSON_LEXER_DEBUG` define instruction logs the type of JSON token that is lexed.
 
 ## Getting started
 Start by including the header. You can allocate a new array and print the formatted JSON object to the console.
