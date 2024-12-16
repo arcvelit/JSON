@@ -104,8 +104,6 @@ typedef _json_object_wrap    *JSON;
 
 typedef _json_writer    Writer;
 
-typedef char *c_str;
-
 
 typedef enum {
     // Primitive types
@@ -187,7 +185,7 @@ void  sb_init(_string_builder* sb);
 void  sb_append_buffer(_string_builder* sb, const char* buf, size_t size);
 
 // Append a null-terminated char array
-void  sb_append_cstr(_string_builder* sb, const c_str str);
+void  sb_append_cstr(_string_builder* sb, const char* str);
 
 // Append single char
 void  sb_append_char(_string_builder* sb, const char c);
@@ -231,7 +229,7 @@ void sb_append_buffer(_string_builder* sb, const char* buf, size_t size) {
     sb->size = new_size;
 }
 
-void sb_append_cstr(_string_builder* sb, const c_str str) {
+void sb_append_cstr(_string_builder* sb, const char* str) {
 
     size_t size = strlen(str);
     sb_append_buffer(sb, str, size);
@@ -298,14 +296,14 @@ void sb_free(_string_builder* sb) {
 
 /* API Writing */
 void writer_stdout_init(Writer* writer);
-int  writer_file_init(Writer* writer, const c_str filename);
+int  writer_file_init(Writer* writer, const char* filename);
 void writer_file_close(Writer* writer);
-void writer_writef(Writer* writer, const c_str message, ...);
-void writer_swrite(Writer* writer, const c_str fmt, const c_str message);
+void writer_writef(Writer* writer, const char* message, ...);
+void writer_swrite(Writer* writer, const char* fmt, const char* message);
 
 /* Internal writing */
 void _writef_indent(Writer* writer, size_t depth);
-void _writef_line(Writer* writer, const c_str message);
+void _writef_line(Writer* writer, const char* message);
 
 /* Internal reading */
 char* _read_file_content(const char* filename);
@@ -316,11 +314,11 @@ int JSON_TYPE_GUARD(JSON ptr, JSONType type);
 /* Internal struct allocators */
 _Number  _json_internal_number_alloc(double value);
 _Boolean _json_internal_boolean_alloc(bool value);
-_String  _json_internal_string_alloc(const c_str string, size_t size);
+_String  _json_internal_string_alloc(const char* string, size_t size);
 _Object  _json_internal_object_alloc();
 _Array   _json_internal_array_alloc();
 
-_KeyValue _json_internal_kv_alloc(const c_str key, size_t key_len, JSON json_wrap);
+_KeyValue _json_internal_kv_alloc(const char* key, size_t key_len, JSON json_wrap);
 _KeyValue* _json_internal_kv_multi_alloc(size_t size);
 JSON* _json_internal_object_multi_alloc(size_t size);
 
@@ -336,7 +334,7 @@ void _json_internal_kv_free(_KeyValue key_value);
 JSON json_null_alloc();
 JSON json_number_alloc(double number);
 JSON json_boolean_alloc(bool boolean);
-JSON json_string_alloc(const c_str string);
+JSON json_string_alloc(const char* string);
 JSON json_object_alloc();
 JSON json_array_alloc();
 
@@ -344,7 +342,7 @@ JSON json_array_alloc();
 void json_free(JSON json_wrap);
 
 /* API Utilities */
-bool json_add_key_value(JSON json_wrap, const c_str key, JSON value);
+bool json_add_key_value(JSON json_wrap, const char* key, JSON value);
 bool json_push(JSON json_wrap, JSON value);
 void json_foreach(JSON json_wrap, void (*func)(JSON));
 JSON json_reducenum(JSON json_wrap, double accumulator, double (*func)(JSON, double));
@@ -368,7 +366,7 @@ void _json_internal_boolean_reset(_Boolean boolean, bool value);
 /* API Reassignment */
 void json_number_reset(JSON json_wrap, double value);
 void json_boolean_reset(JSON json_wrap, bool value);
-void json_string_reset(JSON json_wrap, const c_str value);
+void json_string_reset(JSON json_wrap, const char* value);
 
 /* Internal copying */
 _Array _json_internal_array_copy(_Array array);
@@ -378,7 +376,7 @@ _Object _json_internal_object_copy(_Object object);
 JSON json_copy(JSON json_wrap);
 
 /* API Data */
-JSON* json_get(JSON json_wrap, const c_str key);
+JSON* json_get(JSON json_wrap, const char* key);
 bool  json_in(JSON json_array, JSON json_wrap);
 void  json_reassign(JSON* json_wrap_ptr, JSON new_wrap);
 
@@ -404,7 +402,7 @@ _json_token* _json_lex(char* filestr, size_t* len);
 
 /* Internal lexing utils */
 const char* _get_json_token_name(int value);
-char* _safe_escape_string_copy(const c_str message);
+char* _safe_escape_string_copy(const char* message);
 bool  _get_escaped_char(char c, char* ec);
 char  _get_escape_code(char c); 
 
@@ -437,7 +435,7 @@ void writer_stdout_init(Writer* writer) {
     writer->stream = stdout;
 }
 
-int writer_file_init(Writer* writer, const c_str filename) {
+int writer_file_init(Writer* writer, const char* filename) {
     writer->type = WRITER_FILE;
     writer->stream = fopen(filename, "w");
     return writer->stream ? 1 : 0;
@@ -450,7 +448,7 @@ void writer_file_close(Writer* writer) {
     }
 }
 
-void writer_writef(Writer* writer, const c_str message, ...) {
+void writer_writef(Writer* writer, const char* message, ...) {
     if (writer && writer->stream) {
         va_list args;
         va_start(args, message);
@@ -460,7 +458,7 @@ void writer_writef(Writer* writer, const c_str message, ...) {
 }
 
 // Safe write for escape codes
-void writer_swrite(Writer* writer, const c_str fmt, const c_str message) {
+void writer_swrite(Writer* writer, const char* fmt, const char* message) {
 
     char* new_message = _safe_escape_string_copy(message);
     writer_writef(writer, fmt, new_message);
@@ -475,7 +473,7 @@ void writer_swrite(Writer* writer, const c_str fmt, const c_str message) {
 */ 
 
 struct _json_key_value_pair {
-    c_str key;
+    char* key;
     JSON value;
 };
 
@@ -492,7 +490,7 @@ struct _json_array {        /* JSON_ARRAY   MULTIOBJECT */
 };
 
 struct _json_string {       /* JSON_STRING  PRIMITIVE   */
-    c_str   value;
+    char*   value;
     size_t  size;
 };
 
@@ -533,11 +531,11 @@ int JSON_TYPE_GUARD(JSON ptr, JSONType type) {
 
 /* _String alloc and free */
 
-_String _json_internal_string_alloc(const c_str string, size_t size) {
+_String _json_internal_string_alloc(const char* string, size_t size) {
     _String new_string = (_String)malloc(sizeof(_json_string));
     JSON_MEM_ASSERT(new_string);
     
-    new_string->value = (const c_str)malloc(size + 1);
+    new_string->value = (char*)malloc(size + 1);
     JSON_MEM_ASSERT(new_string->value);
 
     strncpy(new_string->value, string, size);
@@ -593,11 +591,11 @@ void _json_internal_number_free(_Number json_number) {
 
 /* _KeyValue alloc and free */
 
-_KeyValue _json_internal_kv_alloc(const c_str key, size_t key_len, JSON json_wrap) {
+_KeyValue _json_internal_kv_alloc(const char* key, size_t key_len, JSON json_wrap) {
     _KeyValue new_key_value = (_KeyValue)malloc(sizeof(_json_key_value_pair));
     JSON_MEM_ASSERT(new_key_value);
 
-    new_key_value->key = (c_str)malloc(key_len + 1);
+    new_key_value->key = (char*)malloc(key_len + 1);
     JSON_MEM_ASSERT(new_key_value->key);
 
     strncpy(new_key_value->key, key, key_len);
@@ -717,7 +715,7 @@ JSON json_boolean_alloc(bool boolean) {
     return new_json_wrap;
 }
 
-JSON json_string_alloc(const c_str string) {
+JSON json_string_alloc(const char* string) {
     JSON new_json_wrap = (JSON)malloc(sizeof(_json_object_wrap));
     JSON_MEM_ASSERT(new_json_wrap);
 
@@ -796,7 +794,7 @@ _Object _json_internal_object_copy(_Object object) {
     new_object->pairs = _json_internal_kv_multi_alloc(new_object->_capacity);
 
     for (size_t i = 0; i < new_object->keys; i++) {
-        const c_str old_key = object->pairs[i]->key;
+        const char* old_key = object->pairs[i]->key;
         JSON new_value = json_copy(object->pairs[i]->value);
         new_object->pairs[i] = _json_internal_kv_alloc(old_key, strlen(old_key), new_value);
     }
@@ -863,7 +861,7 @@ JSON json_copy(JSON json_wrap) {
     ================================
 */ 
 
-bool json_add_key_value(JSON json_obj, const c_str key, JSON value) {
+bool json_add_key_value(JSON json_obj, const char* key, JSON value) {
     if (JSON_TYPE_GUARD(json_obj, JSON_OBJECT)) return false;
 
     _Object ob = json_obj->object;
@@ -887,7 +885,7 @@ bool json_add_key_value(JSON json_obj, const c_str key, JSON value) {
     return true;    
 }
 
-JSON* json_get(JSON json_obj, const c_str key) {
+JSON* json_get(JSON json_obj, const char* key) {
     if (JSON_TYPE_GUARD(json_obj, JSON_OBJECT)) return NULL;
 
     for (size_t i = 0; i < json_obj->object->keys; i++)
@@ -1059,7 +1057,7 @@ void json_boolean_reset(JSON json_bool, bool value) {
     _json_internal_boolean_reset(json_bool->boolean, value);
 }
 
-void json_string_reset(JSON json_str, const c_str value) {
+void json_string_reset(JSON json_str, const char* value) {
     if (JSON_TYPE_GUARD(json_str, JSON_STRING)) return;
 
     _json_internal_string_free(json_str->string);
@@ -1077,7 +1075,7 @@ void _writef_indent(Writer* writer, size_t depth) {
     while(depth-- > 0) writer_writef(writer, __JSON_TABULATION);
 }
 
-void _writef_line(Writer* writer, const c_str message) {
+void _writef_line(Writer* writer, const char* message) {
     writer_writef(writer, "%s\n", message);
 }
 
@@ -1245,13 +1243,13 @@ char _get_escape_code(char c) {
 }
 
 // Reveals escape characters with backslash
-char* _safe_escape_string_copy(const c_str message) {
+char* _safe_escape_string_copy(const char* message) {
 
     char esc[2] = {'\\', '\0'};
     _string_builder sb = {0};
     sb_init(&sb);
 
-    char* it = message;
+    const char* it = message;
     while(*it != '\0') {
         if (_get_escaped_char(*it, &esc[1])) {
             sb_append_buffer(&sb, esc, 2);
@@ -1560,7 +1558,7 @@ JSON _json_parse_object(_json_token** tokens, _json_token* end) {
             // seek key-value { k : <v> } ,?
             if (cursor + 4 <= end && cursor[0].type == TOKEN_STRING && cursor[1].type == TOKEN_COLON) {
 
-                const c_str key = (c_str)cursor[0].strlit;
+                const char* key = cursor[0].strlit;
 
                 if (json_get(json_object, key)) {
                     JSON_LOG_PARSE_ERROR("Duplicate keys at", cursor);
@@ -1652,7 +1650,7 @@ JSON _json_parse_primitive(_json_token** tokens, _json_token* end) {
     JSON json_wrap;
     switch (token.type) {
         case TOKEN_STRING: {
-            json_wrap = json_string_alloc((const c_str)token.strlit);
+            json_wrap = json_string_alloc(token.strlit);
             break;
         }
         case TOKEN_NUMBER: {

@@ -3,7 +3,7 @@
 
 int main()
 {
-    
+
     // Try it yourself here
 
     // ...
