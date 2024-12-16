@@ -21,19 +21,14 @@ int main()
     json_push(list, json_boolean_alloc(false));
 
     // See if all are true, one is false
-    JSON forall = json_reducebool(list, true, all);
-    JSON exists = json_reducebool(list, false, some_false);
+    bool forall = json_reducebool(list, true, all);
+    bool exists = json_reducebool(list, false, some_false);
 
     // Print and free
-    Writer writer = {0};
-    writer_stdout_init(&writer);
-
-    json_write(&writer, forall);
-    json_write(&writer, exists);
+    printf("%s\n", JSON_BOOL_TO_STRING(forall));
+    printf("%s\n", JSON_BOOL_TO_STRING(exists));
     
     json_free(list);
-    json_free(forall);
-    json_free(exists);
 
     return EXIT_SUCCESS;
 }

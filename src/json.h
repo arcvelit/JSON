@@ -345,8 +345,8 @@ void json_free(JSON json_wrap);
 bool json_add_key_value(JSON json_wrap, const char* key, JSON value);
 bool json_push(JSON json_wrap, JSON value);
 void json_foreach(JSON json_wrap, void (*func)(JSON));
-JSON json_reducenum(JSON json_wrap, double accumulator, double (*func)(JSON, double));
-JSON json_reducebool(JSON json_wrap, bool accumulator, bool (*func)(JSON, bool));
+double json_reducenum(JSON json_wrap, double accumulator, double (*func)(JSON, double));
+bool json_reducebool(JSON json_wrap, bool accumulator, bool (*func)(JSON, bool));
 
 void _json_internal_number_write(Writer* writer, _Number number);
 void _json_internal_boolean_write(Writer* writer, _Boolean boolean);
@@ -939,28 +939,28 @@ void json_foreach(JSON json_array, void (*func)(JSON)) {
         func(ar->objects[i]);
 }
 
-JSON json_reducenum(JSON json_array, double accumulator, double (*func)(JSON, double)) {
-    if (JSON_TYPE_GUARD(json_array, JSON_ARRAY)) return NULL;
+double json_reducenum(JSON json_array, double accumulator, double (*func)(JSON, double)) {
+    if (JSON_TYPE_GUARD(json_array, JSON_ARRAY)) exit(EXIT_FAILURE);
     
     _Array ar = json_array->array;
     for (size_t i = 0; i < ar->size; i++) {
-        if (JSON_TYPE_GUARD(ar->objects[i], JSON_NUMBER)) return NULL;
+        if (JSON_TYPE_GUARD(ar->objects[i], JSON_NUMBER)) exit(EXIT_FAILURE);
         accumulator = func(ar->objects[i], accumulator);
     }
 
-    return json_number_alloc(accumulator);
+    return accumulator;
 }
 
-JSON json_reducebool(JSON json_array, bool accumulator, bool (*func)(JSON, bool)) {
-    if (JSON_TYPE_GUARD(json_array, JSON_ARRAY)) return NULL;
+bool json_reducebool(JSON json_array, bool accumulator, bool (*func)(JSON, bool)) {
+    if (JSON_TYPE_GUARD(json_array, JSON_ARRAY)) exit(EXIT_FAILURE);
     
     _Array ar = json_array->array;
     for (size_t i = 0; i < ar->size; i++) {
-        if (JSON_TYPE_GUARD(ar->objects[i], JSON_BOOLEAN)) return NULL;
+        if (JSON_TYPE_GUARD(ar->objects[i], JSON_BOOLEAN)) exit(EXIT_FAILURE);
         accumulator = func(ar->objects[i], accumulator);
     }
 
-    return json_boolean_alloc(accumulator);
+    return accumulator;
 }
 
 

@@ -21,19 +21,14 @@ int main()
     json_push(list, json_number_alloc(3));
 
     // Get the product and sum of the array elements
-    JSON product = json_reducenum(list, 1, multiplication);
-    JSON sum = json_reducenum(list, 0, addition);
+    double product = json_reducenum(list, 1, multiplication);
+    double sum = json_reducenum(list, 0, addition);
 
     // Print and free
-    Writer writer = {0};
-    writer_stdout_init(&writer);
-
-    json_write(&writer, product);
-    json_write(&writer, sum);
+    printf("%g\n", product);
+    printf("%g\n", sum);
     
     json_free(list);
-    json_free(product);
-    json_free(sum);
 
     return EXIT_SUCCESS;
 }
