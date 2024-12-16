@@ -68,7 +68,14 @@ int main() {
 ```
 Follow the project demos in `/src/demos/` for other examples.
 
+## Performance
+Performance was not in mind when designing this library. However, a little test was conducted using this [25MB json file](https://github.com/json-iterator/test-data/blob/master/large-file.json). The API first parsed the file and then dumped it back into a file. Performance issues are most probably due to the abuse of recursion.  
+
+![image](https://github.com/user-attachments/assets/d4d18c63-9499-48be-9863-9586cec7061f)
+
+
 ## TODO
+* Replace recursion in writing, tokenizing, parsing (performance)
 * More builtins for multi-objects (optional)
 
 ## Environment
