@@ -1444,6 +1444,8 @@ _json_token* _json_lex(char* filestr, size_t* len) {
     size_t tokens_cap = JSON_BUFFER_INITIAL_CAP;
     size_t tokens_size = 0;
     _json_token* tokens = malloc(tokens_cap * sizeof(_json_token));
+    JSON_MEM_ASSERT(tokens);
+    
 
     while (*filestr) {
 
