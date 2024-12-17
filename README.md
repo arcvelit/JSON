@@ -69,7 +69,7 @@ int main() {
 Follow the project demos in `/src/demos/` for other examples.
 
 ## Performance
-Performance was not in mind when designing this library. However, a little test was conducted using this 25Mb [large json file](https://github.com/json-iterator/test-data/blob/master/large-file.json). The API first parsed the file and then dumped it back into a file with `-O3` GCC optimizations. Performance issues are most probably due to the abuse of recursion.  
+Performance was not considered when designing this library. However, a small test was conducted using this 25Mb [large JSON file](https://github.com/json-iterator/test-data/blob/master/large-file.json). The API parsed the file and then dumped it into a file with `-O3` GCC optimizations. Performance issues are probably due to the abuse of recursion or excessive allocations.  
 
 ![image](https://github.com/user-attachments/assets/c613d10b-b1cf-4ec9-a024-71a3c2cdf56b)
 
