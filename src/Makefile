@@ -1,6 +1,9 @@
-all: main
+all: bin  main
+
+bin:
+	mkdir -p bin
 
 main:
-	gcc json.c -O3 -o json -Wall -Wextra -pedantic
+	gcc json.c -O3 -o bin/json -Wall -Wextra -pedantic
 
 

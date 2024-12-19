@@ -62,7 +62,7 @@
 #define JSON_LOG_PARSE_ERROR(MESSAGE, TOKEN)                                                                                           \
     do {                                                                                                                               \
         if (!_json_parse_error[0]) {                                                                                                   \
-            snprintf(_json_parse_error, sizeof(_json_parse_error), "%s %u:%u", (MESSAGE), (size_t)(TOKEN)->row, (size_t)(TOKEN)->col); \
+            snprintf(_json_parse_error, sizeof(_json_parse_error), "%s %zu:%zu", (MESSAGE), (size_t)(TOKEN)->row, (size_t)(TOKEN)->col); \
         }                                                                                                                              \
     } while (0)
 
@@ -313,11 +313,11 @@ int JSON_TYPE_GUARD(JSON ptr, JSONType type);
 /* Internal struct allocators */
 _Number  _json_internal_number_alloc(double value);
 _Boolean _json_internal_boolean_alloc(bool value);
-_String  _json_internal_string_alloc(const char* string, size_t size);
+_String  _json_internal_string_alloc(const char* string);
 _Object  _json_internal_object_alloc();
 _Array   _json_internal_array_alloc();
 
-_KeyValue _json_internal_kv_alloc(const char* key, size_t key_len, JSON json_wrap);
+_KeyValue _json_internal_kv_alloc(const char* key, JSON json_wrap);
 _KeyValue* _json_internal_kv_multi_alloc(size_t size);
 JSON* _json_internal_object_multi_alloc(size_t size);
 
@@ -490,7 +490,6 @@ struct _json_array {        /* JSON_ARRAY   MULTIOBJECT */
 
 struct _json_string {       /* JSON_STRING  PRIMITIVE   */
     char*   value;
-    size_t  size;
 };
 
 struct _json_number {      /* JSON_NUMBER   PRIMITIVE   */
@@ -530,16 +529,13 @@ int JSON_TYPE_GUARD(JSON ptr, JSONType type) {
 
 /* _String alloc and free */
 
-_String _json_internal_string_alloc(const char* string, size_t size) {
+_String _json_internal_string_alloc(const char* string) {
     _String new_string = (_String)malloc(sizeof(_json_string));
     JSON_MEM_ASSERT(new_string);
     
-    new_string->value = (char*)malloc(size + 1);
+    new_string->value = strdup(string);
     JSON_MEM_ASSERT(new_string->value);
 
-    strncpy(new_string->value, string, size);
-    new_string->value[size] = '\0';
-    new_string->size = size;
     return new_string;
 }
 
@@ -590,15 +586,13 @@ void _json_internal_number_free(_Number json_number) {
 
 /* _KeyValue alloc and free */
 
-_KeyValue _json_internal_kv_alloc(const char* key, size_t key_len, JSON json_wrap) {
+_KeyValue _json_internal_kv_alloc(const char* key, JSON json_wrap) {
     _KeyValue new_key_value = (_KeyValue)malloc(sizeof(_json_key_value_pair));
     JSON_MEM_ASSERT(new_key_value);
 
-    new_key_value->key = (char*)malloc(key_len + 1);
+    new_key_value->key = strdup(key);
     JSON_MEM_ASSERT(new_key_value->key);
 
-    strncpy(new_key_value->key, key, key_len);
-    new_key_value->key[key_len] = '\0';
     new_key_value->value = json_wrap;
     return new_key_value;
 }
@@ -718,7 +712,7 @@ JSON json_string_alloc(const char* string) {
     JSON new_json_wrap = (JSON)malloc(sizeof(_json_object_wrap));
     JSON_MEM_ASSERT(new_json_wrap);
 
-    new_json_wrap->string = _json_internal_string_alloc(string, strlen(string));
+    new_json_wrap->string = _json_internal_string_alloc(string);
     JSON_MEM_ASSERT(new_json_wrap->string);
 
     new_json_wrap->type = JSON_STRING;
@@ -795,7 +789,7 @@ _Object _json_internal_object_copy(_Object object) {
     for (size_t i = 0; i < new_object->keys; i++) {
         const char* old_key = object->pairs[i]->key;
         JSON new_value = json_copy(object->pairs[i]->value);
-        new_object->pairs[i] = _json_internal_kv_alloc(old_key, strlen(old_key), new_value);
+        new_object->pairs[i] = _json_internal_kv_alloc(old_key, new_value);
     }
 
     return new_object;
@@ -880,7 +874,7 @@ bool json_add_key_value(JSON json_obj, const char* key, JSON value) {
         ob->pairs = new_pairs;
     }
 
-    ob->pairs[ob->keys++] = _json_internal_kv_alloc(key, strlen(key), value);
+    ob->pairs[ob->keys++] = _json_internal_kv_alloc(key, value);
     return true;    
 }
 
@@ -1060,7 +1054,7 @@ void json_string_reset(JSON json_str, const char* value) {
     if (JSON_TYPE_GUARD(json_str, JSON_STRING)) return;
 
     _json_internal_string_free(json_str->string);
-    json_str->string = _json_internal_string_alloc(value, strlen(value));
+    json_str->string = _json_internal_string_alloc(value);
 }
 
 
@@ -1289,7 +1283,7 @@ char* _read_file_content(const char* filename) {
 
     size_t bytesRead = fread(file_cstr, sizeof(char), length, file);
     if (bytesRead != length) {
-        fprintf(stderr, "ERROR: File read mismatch `%s` (%d/%d bytes)\n", filename, bytesRead, length);
+        fprintf(stderr, "ERROR: File read mismatch `%s` (%zu/%zu bytes)\n", filename, bytesRead, length);
         free(file_cstr);
         fclose(file);
         return NULL;
@@ -1482,7 +1476,7 @@ _json_token* _json_lex(char* filestr, size_t* len) {
         } else if (_json_lex_structural(&filestr, &token)) {
 
         } else {
-            fprintf(stderr, "ERROR: Unexpected token at %d:%d\n", token.row, token.col);
+            fprintf(stderr, "ERROR: Unexpected token at %zu:%zu\n", token.row, token.col);
             _json_free_tokens(tokens, tokens_size);
             return NULL;
         }
