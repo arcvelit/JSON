@@ -27,7 +27,7 @@ Null objects are allocated JSON of type JSON_NULL and their object field is NULL
 Read the `json_best_practices.c` demo.  
 
 **TL;DR** Every JSON is dynamically allocated and the API provides alloc functions for you. If an object is part of a hierarchy, it will be freed
-by using the API free on its parent. For example, if you free an array, all members of the array will be freed too. This highly encourages 
+by using the API free on its parent. For example, if you free an array, all members will be freed too. This encourages 
 "allocating and letting the parent deal with it" to abstract memory management as much as possible.
 
 ⚠️ **For this reason, it is not recommended to keep long-lasting references to child objects.**
@@ -69,7 +69,7 @@ int main() {
 Follow the project demos in `/src/demos/` for other examples.
 
 ## Performance
-Performance was not considered when designing this library. However, a small test was conducted using this 25Mb [large JSON file](https://github.com/json-iterator/test-data/blob/master/large-file.json). The API parsed the file and then dumped it into a file with `-O3` GCC optimizations. Performance issues are probably due to the abuse of recursion or excessive allocations. We also make a lot of small writes that we can buffer.  
+Performance was not the utmost priority when designing this library. However, a small test was conducted using this 25Mb [large JSON file](https://github.com/json-iterator/test-data/blob/master/large-file.json). The API parsed the file and then dumped it into a file with `-O3` GCC optimizations. Lots of small writes to files instead of buffering, excessive allocation of tokens instead of using a token stream, and such, are suspected to be the root of performance issues.  
 
 ![image](https://github.com/user-attachments/assets/c613d10b-b1cf-4ec9-a024-71a3c2cdf56b)
 
