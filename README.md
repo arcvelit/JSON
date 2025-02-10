@@ -32,6 +32,9 @@ by using the API free on its parent. For example, if you free an array, all memb
 
 ⚠️ **For this reason, it is not recommended to keep long-lasting references to child objects.**
 
+### Parsing
+You can now parse JSON from string and from files! See the demos.
+
 ### Writing 
 Writing supports two types of streams: stdout and file. Functions to initiate and close them are provided to you. Make sure to close 
 the file writers when they are no longer needed. Plenty of demos show the functionalities of these writers.
