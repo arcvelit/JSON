@@ -169,6 +169,14 @@ struct _json_writer {
 };
 
 
+
+
+/*  
+    ================================
+    Declarations    
+    ================================
+*/ 
+
 // String Builder ======================================
 
 typedef struct {
@@ -179,119 +187,21 @@ typedef struct {
 
 // Allocates initial buffer
 void  sb_init(_string_builder* sb);
-
 // Append a sized char buffer
 void  sb_append_buffer(_string_builder* sb, const char* buf, size_t size);
-
 // Append a null-terminated char array
 void  sb_append_cstr(_string_builder* sb, const char* str);
-
 // Append single char
 void  sb_append_char(_string_builder* sb, const char c);
-
 // Transfers ownership of string
 char* sb_tostring_alloc(_string_builder* sb);
-
 // Transfers ownership of string
 // Discards the string builder for you
 char* sb_collapse_alloc(_string_builder* sb);
-
 // Discards the string builder
 void  sb_free(_string_builder* sb);
 
-void sb_init(_string_builder* sb) {
-
-    sb->items = malloc(JSON_STR_INITIAL_CAP);
-    JSON_MEM_ASSERT(sb->items);
-
-    sb->_cap = JSON_STR_INITIAL_CAP;
-    sb->size = 0;
-}
-
-void sb_append_buffer(_string_builder* sb, const char* buf, size_t size) {
-    
-    size_t new_size = sb->size + size;
-
-    if (new_size > sb->_cap) {
-
-        size_t new_capacity = sb->_cap * 2;
-        while (new_capacity < new_size) new_capacity *= 2;
-
-        char* new_items = realloc(sb->items, new_capacity);
-        JSON_MEM_ASSERT(new_items);
-
-        sb->_cap = new_capacity;
-        sb->items = new_items;
-    }
-
-    memcpy(sb->items + sb->size, buf, size);
-    sb->size = new_size;
-}
-
-void sb_append_cstr(_string_builder* sb, const char* str) {
-
-    size_t size = strlen(str);
-    sb_append_buffer(sb, str, size);
-}
-
-void sb_append_char(_string_builder* sb, const char c) {
-
-    if (sb->size == sb->_cap) {
-
-        size_t new_capacity = sb->_cap * 2;
-        char* new_items = realloc(sb->items, new_capacity);
-        JSON_MEM_ASSERT(new_items);
-
-        sb->_cap = new_capacity;
-        sb->items = new_items;
-    }
-
-    sb->items[sb->size++] = c;
-}
-
-char* sb_tostring_alloc(_string_builder* sb) {
-
-    char* copy = malloc(sb->size + 1);
-    JSON_MEM_ASSERT(copy);
-
-    memcpy(copy, sb->items, sb->size);
-    copy[sb->size] = '\0';
-
-    return copy;
-}
-
-char* sb_collapse_alloc(_string_builder* sb) {
-
-    char* str;
-    if (sb->size + 1 == sb->_cap) {
-        str = sb->items;
-    } else {
-        str = realloc(sb->items, sb->size + 1);
-        JSON_MEM_ASSERT(str);
-    }
-
-    str[sb->size] = '\0';
-    sb->items = NULL;
-    return str;
-}
-
-void sb_free(_string_builder* sb) {
-    if (sb && sb->items) {
-        free(sb->items);
-        sb->items = NULL;
-    }
-}
-
-// =====================================================
-
-
-/*  
-    ================================
-     Declarations    
-    ================================
-*/ 
-
-// [\w\*]* [\w]*\(([\w\*]* [\w\*]*,?)*\) {
+// ====================================================
 
 /* API Writing */
 void writer_stdout_init(Writer* writer);
@@ -422,49 +332,6 @@ JSON _json_parse_tokens(_json_token** tokens, _json_token* end);
 JSON _json_parse_tokens(_json_token** tokens, _json_token* end);
 JSON _json_parse(_json_token** tokens, _json_token* end);
 
-
-/*  
-    ================================
-     Writing    
-    ================================
-*/ 
-
-void writer_stdout_init(Writer* writer) {
-    writer->type = WRITER_STDOUT;
-    writer->stream = stdout;
-}
-
-int writer_file_init(Writer* writer, const char* filename) {
-    writer->type = WRITER_FILE;
-    writer->stream = fopen(filename, "w");
-    return writer->stream ? 1 : 0;
-}
-
-void writer_file_close(Writer* writer) {
-    if (writer->type == WRITER_FILE && writer->stream) {
-        fclose(writer->stream);
-        writer->stream = NULL;
-    }
-}
-
-void writer_writef(Writer* writer, const char* message, ...) {
-    if (writer && writer->stream) {
-        va_list args;
-        va_start(args, message);
-        vfprintf(writer->stream, message, args);
-        va_end(args);
-    }
-}
-
-// Safe write for escape codes
-void writer_swrite(Writer* writer, const char* fmt, const char* message) {
-
-    char* new_message = _safe_escape_string_copy(message);
-    writer_writef(writer, fmt, new_message);
-    free(new_message);
-}
-
-
 /*  
     ================================
      Structures    
@@ -510,6 +377,139 @@ struct _json_object_wrap {
         _Boolean boolean;
     };
 };
+
+#ifdef JSON_IMPLEMENTATION
+
+/*  
+    ================================
+     String Builder    
+    ================================
+*/ 
+
+void sb_init(_string_builder* sb) {
+
+    sb->items = malloc(JSON_STR_INITIAL_CAP);
+    JSON_MEM_ASSERT(sb->items);
+
+    sb->_cap = JSON_STR_INITIAL_CAP;
+    sb->size = 0;
+}
+
+void sb_append_buffer(_string_builder* sb, const char* buf, size_t size) {
+    
+    size_t new_size = sb->size + size;
+
+    if (new_size > sb->_cap) {
+
+        size_t new_capacity = sb->_cap * 2;
+        while (new_capacity < new_size) new_capacity *= 2;
+
+        char* new_items = realloc(sb->items, new_capacity);
+        JSON_MEM_ASSERT(new_items);
+
+        sb->_cap = new_capacity;
+        sb->items = new_items;
+    }
+
+    memcpy(sb->items + sb->size, buf, size);
+    sb->size = new_size;
+}
+
+void sb_append_cstr(_string_builder* sb, const char* str) {
+
+    size_t size = strlen(str);
+    sb_append_buffer(sb, str, size);
+}
+
+void sb_append_char(_string_builder* sb, const char c) {
+
+    if (sb->size == sb->_cap) {
+
+        size_t new_capacity = sb->_cap * 2;
+        char* new_items = realloc(sb->items, new_capacity);
+        JSON_MEM_ASSERT(new_items);
+
+        sb->_cap = new_capacity;
+        sb->items = new_items;
+    }
+
+    sb->items[sb->size++] = c;
+}
+
+char* sb_tostring_alloc(_string_builder* sb) {
+
+    char* copy = malloc(sb->size + 1);
+    JSON_MEM_ASSERT(copy);
+
+    memcpy(copy, sb->items, sb->size);
+    copy[sb->size] = '\0';
+
+    return copy;
+}
+
+char* sb_collapse_alloc(_string_builder* sb) {
+
+    char* str;
+    if (sb->size + 1 == sb->_cap) {
+        str = sb->items;
+    } else {
+        str = realloc(sb->items, sb->size + 1);
+        JSON_MEM_ASSERT(str);
+    }
+
+    str[sb->size] = '\0';
+    sb->items = NULL;
+    return str;
+}
+
+void sb_free(_string_builder* sb) {
+    if (sb && sb->items) {
+        free(sb->items);
+        sb->items = NULL;
+    }
+}
+
+
+/*  
+    ================================
+     Writing    
+    ================================
+*/ 
+
+void writer_stdout_init(Writer* writer) {
+    writer->type = WRITER_STDOUT;
+    writer->stream = stdout;
+}
+
+int writer_file_init(Writer* writer, const char* filename) {
+    writer->type = WRITER_FILE;
+    writer->stream = fopen(filename, "w");
+    return writer->stream ? 1 : 0;
+}
+
+void writer_file_close(Writer* writer) {
+    if (writer->type == WRITER_FILE && writer->stream) {
+        fclose(writer->stream);
+        writer->stream = NULL;
+    }
+}
+
+void writer_writef(Writer* writer, const char* message, ...) {
+    if (writer && writer->stream) {
+        va_list args;
+        va_start(args, message);
+        vfprintf(writer->stream, message, args);
+        va_end(args);
+    }
+}
+
+// Safe write for escape codes
+void writer_swrite(Writer* writer, const char* fmt, const char* message) {
+
+    char* new_message = _safe_escape_string_copy(message);
+    writer_writef(writer, fmt, new_message);
+    free(new_message);
+}
 
 
 /*  
@@ -1203,9 +1203,7 @@ bool _get_escaped_char(char c, char* ec) {
         case '\t': *ec = 't';  break;  // Horizontal tab
         case '\v': *ec = 'v';  break;  // Vertical tab
         case '\\': *ec = '\\'; break;  // Backslash
-        case '\'': *ec = '\''; break;  // Single quote
         case '\"': *ec = '\"'; break;  // Double quote
-        case '\?': *ec = '?';  break;  // Question mark
         case '\0': *ec = '0';  break;  // Null character
         default: {
             return false;
@@ -1224,9 +1222,7 @@ char _get_escape_code(char c) {
         case 't':  return '\t';  // Horizontal tab
         case 'v':  return '\v';  // Vertical tab
         case '\\': return '\\'; // Backslash
-        case '\'': return '\''; // Single quote
         case '\"': return '\"'; // Double quote
-        case '?':  return '\?';  // Question mark
         case '0':  return '\0';  // Null character
         default: {
             fprintf(stderr, "Encountered unknown escape sequence");
@@ -1730,5 +1726,6 @@ JSON json_parse_file(const char* filename) {
     return ret;
 }
 
+#endif // JSON_IMPLEMENTATION
 
 #endif // JSON_C

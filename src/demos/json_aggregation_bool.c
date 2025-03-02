@@ -1,3 +1,4 @@
+#define JSON_IMPLEMENTATION
 #include "../json.h" 
 
 // All are true
