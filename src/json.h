@@ -378,6 +378,8 @@ struct _json_object_wrap {
     };
 };
 
+#endif // JSON_C
+
 #ifdef JSON_IMPLEMENTATION
 
 /*  
@@ -1672,19 +1674,16 @@ JSON _json_parse_tokens(_json_token** tokens, _json_token* end) {
         return json_object;
     }
     
-    json_free(json_object);
     JSON json_array = _json_parse_array(tokens, end);
     if (json_array) {
         return json_array;
     }
 
-    json_free(json_array);
     JSON json_single = _json_parse_primitive(tokens, end);
     if (json_single) {
         return json_single;
     }
 
-    json_free(json_single);
     JSON_LOG_PARSE_ERROR("Could not resolve json following", *tokens);    
     return NULL;
 }
@@ -1727,5 +1726,3 @@ JSON json_parse_file(const char* filename) {
 }
 
 #endif // JSON_IMPLEMENTATION
-
-#endif // JSON_C
