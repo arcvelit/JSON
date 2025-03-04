@@ -1,5 +1,17 @@
-#ifndef JSON_C
-#define JSON_C
+/*
+ * Author: Louka Fortin-Sirianni
+ * Date: 03/04/2025
+ * File: json.h
+ * Description: This file is a STB-style header library for JSON. Define the
+ *              macro JSON_IMPLEMENTATION to include implementation. It is a 
+ *              simple utility for parsing, building, and writing Javascript
+ *              Object Notation. Don't hold back!
+ * Version: 2.0
+ * License: MIT
+ */
+
+#ifndef __JSON_C
+#define __JSON_C
 
 #include <inttypes.h>
 #include <stdbool.h>
@@ -613,7 +625,7 @@ JSON json_parse_cstring(const char* _cstr);
  */
 JSON json_parse_file(const char* filename);
 
-#endif // JSON_C
+#endif // __JSON_C
 
 #ifdef JSON_IMPLEMENTATION
 
