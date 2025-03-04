@@ -1,5 +1,5 @@
 # JSON
-A basic stb-style JSON single header library for C.
+A basic stb-style [JSON](https://www.json.org/json-en.html) single header library for C.
 
 ## Motivations & Limitations
 This personal project aims to build confidence in writing C programs and explore the language's idiomatic patterns.
@@ -16,6 +16,7 @@ Read the [json_best_practices.c](src/demos/json_best_practices.c) demo.
 | **Wrappers**     | Everything is wrapped in the `JSON` type, including primitives. The API handles most of the runtime type checking. |
 | **Strings**      | All strings provided to the API must be null-terminated. The same is true for the strings provided by the API. The API only accepts `const char *` for string arguments and makes a copy if stored in a JSON wrapper. |
 | **Numbers**      | All numbers are stored as `double` for simplicity. |
+| **Booleans**     | Booleans wrap around the `bool` type from `<stdbool.h>`. |
 | **Null**         | Null objects are allocated as `JSON` of type `JSON_NULL`, and their object field is `NULL`. |
 
 ### Parsing
