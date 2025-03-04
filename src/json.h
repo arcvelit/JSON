@@ -347,18 +347,18 @@ struct _json_writer {
 /* Writing */
 
 /**
- * @brief Init a writer to use stdout
+ * @brief Inits a writer to use stdout
  * @param writer writer reference
  */
 void writer_stdout_init(Writer* writer);
 /**
- * @brief  Init a writer to use a file
+ * @brief  Inits a writer to use a file
  * @param  filename filename cstr
  * @return 1 for success; 0 otherwise
  */
 int  writer_file_init(Writer* writer, const char* filename);
 /**
- * @brief Close file stream of writer
+ * @brief Closes file stream of writer
  * @param writer writer reference
  */
 void writer_file_close(Writer* writer);
@@ -425,16 +425,23 @@ JSON json_object_alloc();
 JSON json_array_alloc();
 
 /**
- * @brief Free an allocated wrapper
+ * @brief Frees an allocated wrapper
  * @param wrap wrapper
  * @note  Children and members are recursively freed
  */
 void json_free(JSON wrap);
 
+/**
+ * @brief Dereferences the pointer and set the wrapper to null
+ * @param wrap wrapper
+ * @note  Introduced to avoid bad frees or null dereferences
+ */
+void json_nfree(JSON* wrap_ptr);
+
 /* Utilities */
 
 /**
- * @brief Add a key value to an object
+ * @brief Adds a key value to an object
  * @param wrap object wrapper
  * @param sv key string view
  * @param value json wrapper
@@ -442,7 +449,7 @@ void json_free(JSON wrap);
  */
 bool json_add_key_sv_value(JSON wrap, const _string_view sv, JSON value);
 /**
- * @brief Add a key value to an object
+ * @brief Adds a key value to an object
  * @param wrap object wrapper
  * @param key key cstr
  * @param value json wrapper
@@ -450,7 +457,7 @@ bool json_add_key_sv_value(JSON wrap, const _string_view sv, JSON value);
  */
 bool json_add_key_value(JSON wrap, const char* key, JSON value);
 /**
- * @brief Append an array member
+ * @brief Appends an array member
  * @param wrap array wrapper
  * @param value json wrapper
  * @return true for success; false otherwise
@@ -591,7 +598,7 @@ bool json_isarr(JSON wrap);
  * @param  wrap json wrapper
  * @param  other json wrapper
  * @return true for matching reference; false otherwise
- * @note   False if at least one is null
+ * @note   Equivalent to == operator in javascript without type coercion
  */
 bool json_is(JSON wrap, JSON other);
 /**
@@ -599,27 +606,27 @@ bool json_is(JSON wrap, JSON other);
  * @param  wrap json wrapper
  * @param  other json wrapper
  * @return true for matching type and value; false otherwise
- * @note   Equivalent of === operator in javascript
+ * @note   Equivalent to === operator in javascript
  */
 bool json_eq(JSON wrap, JSON other);
 
 /* Parsing */
 
 /**
- * @brief  Parse json from a sized string
+ * @brief  Parses json from a sized string
  * @param  buf sized string buffer
  * @param  len length of buffer
  * @return json wrapper
  */
 JSON json_parse_string(const char* buf, size_t len);
 /**
- * @brief  Parse json from a null terminated string
+ * @brief  Parses json from a null terminated string
  * @param  _cstr null terminated string
  * @return json wrapper
  */
 JSON json_parse_cstring(const char* _cstr);
 /**
- * @brief  Parse json from a file
+ * @brief  Parses json from a file
  * @param  filename cstring
  * @return json wrapper
  */
@@ -964,6 +971,13 @@ void json_free(JSON wrap) {
             }
         }
         free(wrap);
+    }
+}
+
+void json_nfree(JSON* wrap_ptr) {
+    if (wrap_ptr) {
+        json_free(*wrap_ptr);
+        *wrap_ptr = NULL;
     }
 }
 
