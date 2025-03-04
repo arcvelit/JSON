@@ -10,7 +10,7 @@ int main()
 
     const char* str = "{\n\t\"status\": 200\n}";
     // JSON object1 = json_parse_string(str, strlen(str));
-    JSON object1 = json_parse_cstring(str);
+    json_t object1 = json_parse_cstring(str);
     if (object1) {
         json_write(&writer, object1);
         json_free(object1);
@@ -18,7 +18,7 @@ int main()
 
     // Parse a JSON object from file
     
-    JSON object2 = json_parse_file("data.json");
+    json_t object2 = json_parse_file("data.json");
     if (object2) {
         json_write(&writer, object2);
         json_free(object2);

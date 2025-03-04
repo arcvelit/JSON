@@ -5,12 +5,12 @@ int main()
 {
     // Create a deep copy of a JSON
 
-    JSON object1 = json_object_alloc();
+    json_t object1 = json_object_alloc();
     json_add_key_value(object1, "A", json_null_alloc());
     json_add_key_value(object1, "B", json_number_alloc(1));
 
     // Object2 -> A: null B: 1 C: null
-    JSON object2 = json_copy(object1);
+    json_t object2 = json_copy(object1);
     json_add_key_value(object2, "C", json_null_alloc());
     
     // Object1 -> A: null B: 69

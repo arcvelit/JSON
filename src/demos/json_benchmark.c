@@ -11,7 +11,7 @@ int main()
 
     clock_t start_parse = clock();
 
-    JSON obj = json_parse_file(i_file);
+    json_t obj = json_parse_file(i_file);
     
     clock_t end_parse = clock();
     

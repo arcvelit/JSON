@@ -5,10 +5,10 @@ int main()
 {
     // Replace a JSON object by another while freeing
 
-    JSON object = json_object_alloc();
+    json_t object = json_object_alloc();
     json_add_key_value(object, "Hello", json_number_alloc(3));
 
-    JSON array = json_array_alloc();
+    json_t array = json_array_alloc();
     json_push(array, json_null_alloc());
 
     // The number 3 gets freed and replaced by this array

@@ -2,12 +2,12 @@
 #include "../json.h" 
 
 // Product reduce
-double multiplication(JSON json_wrap, double accumulator) {
+double multiplication(json_t json_wrap, double accumulator) {
     return accumulator * json_wrap->number->value;
 }
 
 // Sum reduce
-double addition(JSON json_wrap, double accumulator) {
+double addition(json_t json_wrap, double accumulator) {
     return accumulator + json_wrap->number->value;
 }
 
@@ -15,7 +15,7 @@ int main()
 {
     // Use aggregation functions on JSON lists
     
-    JSON list = json_array_alloc();
+    json_t list = json_array_alloc();
     json_push(list, json_number_alloc(1));
     json_push(list, json_number_alloc(2));
     json_push(list, json_number_alloc(3));

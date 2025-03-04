@@ -5,12 +5,12 @@ int main()
 {
     // Modify the value of JSON primitives
      
-    JSON list = json_array_alloc();
+    json_t list = json_array_alloc();
 
-    JSON number1 = json_number_alloc(1);
-    JSON number2 = json_number_alloc(69.420);
-    JSON boolean = json_boolean_alloc(true);
-    JSON string = json_string_alloc("Hello World!");
+    json_t number1 = json_number_alloc(1);
+    json_t number2 = json_number_alloc(69.420);
+    json_t boolean = json_boolean_alloc(true);
+    json_t string = json_string_alloc("Hello World!");
 
     json_number_reset(number1, 32);
     json_number_reset(number2, 15.45);

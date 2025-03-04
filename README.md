@@ -13,11 +13,11 @@ Read the [json_best_practices.c](src/demos/json_best_practices.c) demo.
 
 | **Category**     | **Description**  |
 |------------------|------------------|
-| **Wrappers**     | Everything is wrapped in the `JSON` type, including primitives. The API handles most of the runtime type checking. |
+| **Wrappers**     | Everything is wrapped in the `json_t` type, including primitives. The API handles most of the runtime type checking. |
 | **Strings**      | All strings provided to the API must be null-terminated. The same is true for the strings provided by the API. The API only accepts `const char *` for string arguments and makes a copy if stored in a JSON wrapper. |
 | **Numbers**      | All numbers are stored as `double` for simplicity. |
 | **Booleans**     | Booleans wrap around the `bool` type from `<stdbool.h>`. |
-| **Null**         | Null objects are allocated as `JSON` of type `JSON_NULL`, and their object field is `NULL`. |
+| **Null**         | Null objects are allocated as `json_t` of type `JSON_NULL`, and their object field is `NULL`. |
 
 ### Parsing
 You can now parse JSON from strings and files. Refer to the [src/demos/json_parse.c](src/demos/json_parse.c) demo. The library uses a lightweight LL1 top-down predictive parser. You can find the grammar in the declarations part of the header.
@@ -44,7 +44,7 @@ Let's allocate an array and print the JSON wraps to the console.
 
 int main() {
 
-  JSON array = json_array_alloc();
+  json_t array = json_array_alloc();
   json_push(array, json_number_alloc(3));
   json_push(array, json_number_alloc(0.7525));
   json_push(array, json_boolean_alloc(true));

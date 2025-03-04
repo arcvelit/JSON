@@ -5,9 +5,9 @@ int main()
 {
     // Find a json object in an array
 
-    JSON array = json_array_alloc();
+    json_t array = json_array_alloc();
 
-    JSON findstr = json_string_alloc("Hello, World!");
+    json_t findstr = json_string_alloc("Hello, World!");
 
     json_push(array, json_number_alloc(2));
     json_push(array, json_number_alloc(124));
@@ -21,14 +21,14 @@ int main()
 
     // Get a json key-value
 
-    JSON object = json_object_alloc();
+    json_t object = json_object_alloc();
 
     json_add_key_value(object, "Superman", json_string_alloc("Clark Kent"));
     json_add_key_value(object, "Batman", json_string_alloc("Bruce Wayne"));
     json_add_key_value(object, "Flash", json_string_alloc("Jay Garrick"));
 
     const char* hero = "Batman";
-    JSON* search = json_get(object, hero);
+    json_t* search = json_get(object, hero);
     if (search) {
         printf("%s's actual name is %s\n", hero, (*search)->string->value);
     } else {
