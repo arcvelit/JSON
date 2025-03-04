@@ -9,7 +9,8 @@ int main()
     // Parse a JSON object from cstr
 
     const char* str = "{\n\t\"status\": 200\n}";
-    JSON object1 = json_parse_string(str, strlen(str));
+    // JSON object1 = json_parse_string(str, strlen(str));
+    JSON object1 = json_parse_cstring(str);
     if (object1) {
         json_write(&writer, object1);
         json_free(object1);

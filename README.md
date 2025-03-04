@@ -9,47 +9,34 @@ by allowing primitives, objects with key-value pairs, and arrays of objects.
 
 ## Behaviour
 
-### Strings
-All strings provided to the API must be null-terminated. The same is true for strings provided by the API. Note that the API only accepts `const char *` for string 
-arguments, and it will make a copy of the string if you are trying to store it in a JSON object.
+Read the `json_best_practices.c` demo.
 
-### Numbers
-All numbers are stored as `double` for simplicity. 
-
-### Objects
-Everything is wrapped in the 'JSON' type, including primitives. The API is designed so that it handles most of the runtime type 
-checking for you, except in allocations. 
-
-### Null
-Null objects are allocated JSON of type JSON_NULL, and their object field is NULL.
-
-### Allocations
-Read the `json_best_practices.c` demo.  
-
-**TL;DR** Every JSON is dynamically allocated, and the API provides alloc functions for you. If an object is part of a hierarchy, it will be freed using the API free on its parent. For example, if you free an array, all members will be freed, too. This encourages 
-"allocating and letting the parent deal with it" to abstract memory management as much as possible.
-
-⚠️ **For this reason, long-lasting references to child objects are not recommended.**
+| **Category**     | **Description**  |
+|------------------|------------------|
+| **Wrappers**     | Everything is wrapped in the `JSON` type, including primitives. The API handles most of the runtime type checking. |
+| **Strings**      | All strings provided to the API must be null-terminated. The same is true for strings provided by the API. The API only accepts `const char *` for string arguments and makes a copy if stored in a JSON wrapper. |
+| **Numbers**      | All numbers are stored as `double` for simplicity. |
+| **Null**         | Null objects are allocated as `JSON` of type `JSON_NULL`, and their object field is `NULL`. |
 
 ### Parsing
 You can now parse JSON from strings and files. Refer to the demos.
 
-### Writing 
-Writing supports two types of streams: stdout and file. Methods for initiating and closing streams are provided to you. Close 
-the file writers when they are no longer needed. Plenty of demos show the functionalities of these writers.
+### User definable macros
+Capacities
+* `JSON_MULTIOBJECT_INITIAL_CAP` initial capacity of dynamic arrays and key-values (init: 4)
+* `JSON_ARENA_REGION_CAP` number of tokens per region for the parsing arena (init: 256)  
+<sub>increase for parsing big json files</sub>
 
-### Copying
-Making copies of JSON through the API will create and return deep copies.
-
-### Debug macros
-* The `__JSON_FREE_DEBUG` define instruction logs deallocations of JSON objects.
-* The `__JSON_ARENA_DEBUG` define instruction logs arena region growth.
-* The `__JSON_LEXER_DEBUG` define instruction logs the type of JSON token that is lexed.
+Debug
+* `JSON_FREE_DEBUG` logging deallocations of JSON wraps.
+* `JSON_ALLOC_DEBUG` logging allocations of JSON wraps.
+* `JSON_ARENA_DEBUG` logging arena region growth.
+* `JSON_LEXER_DEBUG` logging the type of JSON token that is lexed.
 
 ## Getting started
 Start by including the header. Since this is a stb-style library, you must define the `JSON_IMPLEMENTATION` directive.  
 
-Let's allocate an array and print the JSON object to the console.
+Let's allocate an array and print the JSON wraps to the console.
 
 ```c
 #define JSON_IMPLEMENTATION
@@ -72,16 +59,18 @@ int main() {
   return 0;
 }
 ```
-Follow the project demos in `/src/demos/` for other examples.
+Follow the project demos in `[src/demos/](src/demos/)` for other examples.
 
 ## Performance
-Performance was not the utmost priority when designing this library. However, a small test was conducted using this 25Mb [large JSON file](https://github.com/json-iterator/test-data/blob/master/large-file.json). The file was parsed and dumped into a file with `-O3` GCC optimizations. Many small writes to files instead of buffering may impact performance.  
+Performance was not the utmost priority when designing this library. However, a small test was conducted using this 25Mb [large JSON file](https://github.com/json-iterator/test-data/blob/master/large-file.json). The file was parsed and dumped into a file with `-O3` GCC optimizations. Many small writes to files instead of buffering may impact performance.   
 
 ![image](https://github.com/user-attachments/assets/12ae170e-209c-4b02-b101-04b1bf2b4ab6)
 
+<sub>`[src/json_benchmark.c](src/demos/json_benchmark.c)` demo</sub>
+
 ## TODO
-* Replace recursion in writing, tokenizing, parsing (performance)
-* User hash map instead of array for key-value pairs (performance)
+* Buffer small writes (performance)
+* Use hash map instead of array for key-value pairs (performance)
 * More built-ins for multi-objects (optional)
 
 ## Environment

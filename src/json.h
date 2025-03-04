@@ -38,31 +38,37 @@
 
 #define JSON_BOOL_TO_STRING(b) ((b) ? __JSON_BOOLEAN_TRUE_PRINT_FMT : __JSON_BOOLEAN_FALSE_PRINT_FMT)
 
-#ifdef __JSON_FREE_DEBUG
-    #define __FREE_DEBUG_PRINT(MESSAGE) printf("\nDEBUG: Freeing %s\n", MESSAGE)
+#ifdef JSON_ALLOC_DEBUG
+#define __ALLOC_DEBUG_PRINT(MESSAGE) printf("DEBUG: Allocated %s\n", (MESSAGE))
 #else
-    #define __FREE_DEBUG_PRINT(MESSAGE)
-#endif
+#define __ALLOC_DEBUG_PRINT(MESSAGE)
+#endif // JSON_ALLOC_DEBUG
 
-#ifdef __JSON_LEXER_DEBUG
-    #define __LEXER_DEBUG_PRINT(TYPE) printf("DEBUG: Lexed %s\n", _get_json_token_name(TYPE));
-#else 
-    #define __LEXER_DEBUG_PRINT(TYPE)
-#endif
+#ifdef JSON_FREE_DEBUG
+#define __FREE_DEBUG_PRINT(MESSAGE) printf("DEBUG: Freed %s\n", (MESSAGE))
+#else
+#define __FREE_DEBUG_PRINT(MESSAGE)
+#endif // JSON_FREE_DEBUG
 
-#ifdef __JSON_ARENA_DEBUG
-    #define __ARENA_DEBUG_PRINT() printf("DEBUG: Arena grew (size: %zu)\n", _json_global_arena.regions);
+#ifdef JSON_LEXER_DEBUG
+#define __LEXER_DEBUG_PRINT(TYPE) printf("DEBUG: Lexed %s\n", _get_json_token_name((TYPE)));
 #else 
-    #define __ARENA_DEBUG_PRINT()
-#endif
+#define __LEXER_DEBUG_PRINT(TYPE)
+#endif // JSON_LEXER_DEBUG
+
+#ifdef JSON_ARENA_DEBUG
+#define __ARENA_DEBUG_PRINT() printf("DEBUG: Arena grew (size: %zu)\n", _json_global_arena.regions);
+#else 
+#define __ARENA_DEBUG_PRINT()
+#endif // JSON_ARENA_DEBUG
 
 #define JSON_IS_WHITESPACE(c)  ((c) == ' ' || (c) == '\t' || (c) == '\n' || (c) == '\r' || (c) == '\f' || (c) == '\v')
 #define JSON_IS_NUMBER_CHAR(c) ((c) == '+' || (c) ==  '-' || (c) ==  'E' || (c) ==  'e' || (c) ==  '.' || ((c) >=  '0' && (c) <=  '9'))
 #define JSON_IS_ALPHANUM(c) (((c) >= 'A' && (c) <= 'Z') || ((c) >= 'a' && (c) <= 'z') || ((c) >= '0' && (c) <= '9'))
 
-#define JSON_BUFFER_INITIAL_CAP         64
-#define JSON_STR_INITIAL_CAP             8
-#define JSON_MULTIOBJECT_INITIAL_CAP     4
+#ifndef JSON_MULTIOBJECT_INITIAL_CAP
+#define JSON_MULTIOBJECT_INITIAL_CAP 4
+#endif // JSON_MULTIOBJECT_INITIAL_CAP
 
 #define JSON_MEM_ASSERT(PTR)                           \
     do {                                               \
@@ -108,8 +114,14 @@ typedef _json_array     *_Array;
 
 typedef _json_key_value_pair *_KeyValue;
 
+/**
+ * @brief JSON object type
+ */
 typedef _json_object_wrap    *JSON;
 
+/**
+ * @brief JSON writer
+ */
 typedef _json_writer    Writer;
 
 /*  
@@ -118,6 +130,9 @@ typedef _json_writer    Writer;
     ================================
 */ 
 
+/**
+ * @brief Types of JSON
+ */
 typedef enum {
     JSON_NUMBER, 
     JSON_STRING, 
@@ -167,8 +182,6 @@ struct _json_object_wrap {
     };
 };
 
-//   Keep both aligned
-// ---------------------
 const char* _json_token_names[] = {
     "number",
     "string",
@@ -198,7 +211,6 @@ typedef enum {
     JSON_TOKEN_ERROR     = 1024,
     JSON_TOKEN_EOF       = 2048,
 } _json_token_type;
-// ---------------------
 
 typedef struct _json_ast_token _json_ast_token;
 
@@ -221,7 +233,9 @@ struct _json_ast_token {
     ================================
 */
 
+#ifndef JSON_ARENA_REGION_CAP
 #define JSON_ARENA_REGION_CAP 256
+#endif // JSON_ARENA_REGION_CAP
 
 typedef struct  _json_ast_arena_reg _json_ast_arena_reg;
 
@@ -257,7 +271,6 @@ typedef struct {
     size_t line_begin;
 } _json_lexer;
 
-
 /*  
     ================================
      Parsing    
@@ -278,12 +291,10 @@ typedef struct {
  * 
  */
 
-const _json_token_type JSON_FIRST_SET_JSON       = JSON_TOKEN_STRING | JSON_TOKEN_NUMBER | JSON_TOKEN_BOOLEAN | JSON_TOKEN_NULL | JSON_TOKEN_LBRACE | JSON_TOKEN_LBRACKET;
-
-const _json_token_type JSON_FOLLOW_SET_ARRAYBODY  = JSON_TOKEN_RBRACKET;
-const _json_token_type JSON_FOLLOW_SET_ARRAYTAIL  = JSON_TOKEN_RBRACKET;
-const _json_token_type JSON_FOLLOW_SET_OBJECTBODY = JSON_TOKEN_RBRACE;
-const _json_token_type JSON_FOLLOW_SET_OBJECTTAIL = JSON_TOKEN_RBRACE;
+typedef struct {
+    _json_ast_token* lookahead;
+    _json_lexer* lexer;
+} _json_parser;
 
 char json_parse_error[128] = {0};
 
@@ -303,7 +314,6 @@ char json_parse_error[128] = {0};
         }                                              \
     } while (0)
 
-
 /*  
     ================================
      Writer    
@@ -320,73 +330,302 @@ struct _json_writer {
     FILE* stream;
 };
 
-
 // ====================================================
 
 /* Writing */
+
+/**
+ * @brief Init a writer to use stdout
+ * @param writer writer reference
+ */
 void writer_stdout_init(Writer* writer);
+/**
+ * @brief  Init a writer to use a file
+ * @param  filename filename cstr
+ * @return 1 for success; 0 otherwise
+ */
 int  writer_file_init(Writer* writer, const char* filename);
+/**
+ * @brief Close file stream of writer
+ * @param writer writer reference
+ */
 void writer_file_close(Writer* writer);
+/**
+ * @brief Variadic format print to writer (printf)
+ * @param writer writer reference
+ * @param message message or format
+ * @param ... vargs
+ */
 void writer_writef(Writer* writer, const char* message, ...);
 
 /* Type guard */
-int JSON_TYPE_GUARD(JSON ptr, JsonType type);
 
-/* Allocators */
+/**
+ * @brief Type guard for JSON wrapper
+ * @param wrap JSON wrapper
+ * @param type type of wrapper
+ * @return 1 for assert failed; 0 otherwise
+ */
+int JSON_TYPE_GUARD(JSON wrap, JsonType type);
+
+/* Allocations */
+
+/**
+ * @brief  Allocates a null 
+ * @return allocated wrapper
+ */
 JSON json_null_alloc();
+/**
+ * @brief  Allocates a number 
+ * @param  number value
+ * @return allocated wrapper
+ */
 JSON json_number_alloc(double number);
+/**
+ * @brief  Allocates a boolean
+ * @param  boolean value 
+ * @return allocated wrapper
+ */
 JSON json_boolean_alloc(bool boolean);
+/**
+ * @brief  Allocates a string
+ * @param  string value
+ * @return allocated wrapper
+ * @note   String is copied for internal use
+ */
 JSON json_string_alloc(const char* string);
+/**
+ * @brief  Allocates a string from string view
+ * @param  sv string view
+ * @return allocated wrapper
+ * @note   String is copied for internal use
+ */
 JSON json_string_from_sv_alloc(const _string_view sv);
+/**
+ * @brief  Allocates an object 
+ * @return allocated wrapper
+ */
 JSON json_object_alloc();
+/**
+ * @brief  Allocates an array 
+ * @return allocated wrapper
+ */
 JSON json_array_alloc();
 
-/* Deallocators */
-void json_free(JSON json_wrap);
+/**
+ * @brief Free an allocated wrapper
+ * @param wrap wrapper
+ * @note  Children and members are recursively freed
+ */
+void json_free(JSON wrap);
 
 /* Utilities */
-bool json_add_key_sv_value(JSON json_obj, const _string_view sv, JSON value);
-bool json_add_key_value(JSON json_wrap, const char* key, JSON value);
-bool json_push(JSON json_wrap, JSON value);
-void json_foreach(JSON json_wrap, void (*func)(JSON));
-double json_reducenum(JSON json_wrap, double accumulator, double (*func)(JSON, double));
-bool json_reducebool(JSON json_wrap, bool accumulator, bool (*func)(JSON, bool));
+
+/**
+ * @brief Add a key value to an object
+ * @param wrap object wrapper
+ * @param sv key string view
+ * @param value json wrapper
+ * @return true for success; false otherwise
+ */
+bool json_add_key_sv_value(JSON wrap, const _string_view sv, JSON value);
+/**
+ * @brief Add a key value to an object
+ * @param wrap object wrapper
+ * @param key key cstr
+ * @param value json wrapper
+ * @return true for success; false otherwise
+ */
+bool json_add_key_value(JSON wrap, const char* key, JSON value);
+/**
+ * @brief Append an array member
+ * @param wrap array wrapper
+ * @param value json wrapper
+ * @return true for success; false otherwise
+ */
+bool json_push(JSON wrap, JSON value);
+
+/**
+ * @brief Applies an action on an array
+ * @param wrap array wrapper
+ * @param action action pointer
+ */
+void json_foreach(JSON wrap, void (*action)(JSON));
+/**
+ * @brief  Accumulates a number action on an array
+ * @param  wrap array wrapper
+ * @param  action action pointer
+ * @return accumulated number
+ */
+double json_reducenum(JSON wrap, double accumulator, double (*action)(JSON, double));
+/**
+ * @brief  Accumulates a boolean action on an array
+ * @param  wrap array wrapper
+ * @param  action action pointer
+ * @return accumulated boolean
+ */
+bool json_reducebool(JSON wrap, bool accumulator, bool (*action)(JSON, bool));
 
 /* Writing*/
-void json_write(Writer* writer, JSON json_wrap);
 
-/* Reassignment */
-void json_number_reset(JSON json_wrap, double value);
-void json_boolean_reset(JSON json_wrap, bool value);
-void json_string_reset(JSON json_wrap, const char* value);
+/**
+ * @brief Writes a JSON wrapper to stream
+ * @param writer writer reference
+ * @param wrap json wrapper
+ */
+void json_write(Writer* writer, JSON wrap);
+
+/* Reset */
+
+/**
+ * @brief Modifies the value of a numeric wrapper
+ * @param wrap number wrap
+ * @param value new value
+ */
+void json_number_reset(JSON wrap, double value);
+/**
+ * @brief Modifies the value of a boolean wrapper
+ * @param wrap bool wrap
+ * @param value new value
+ */
+void json_boolean_reset(JSON wrap, bool value);
+/**
+ * @brief Modifies the value of a string wrapper
+ * @param wrap number wrap
+ * @param value new string
+ * @note  Frees the old string
+ */
+void json_string_reset(JSON wrap, const char* value);
 
 /* Copying */
-JSON json_copy(JSON json_wrap);
+
+/**
+ * @brief  Copies a wrapper
+ * @param  wrap json wrapper
+ * @return Deep copy of wrapper
+ */
+JSON json_copy(JSON wrap);
 
 /* Data */
-JSON* json_get(JSON json_wrap, const char* key);
-bool  json_in(JSON json_array, JSON json_wrap);
-void  json_reassign(JSON* json_wrap_ptr, JSON new_wrap);
 
-/* Predicates */
-bool json_isnull(JSON json_wrap);
-bool json_isnum(JSON json_wrap);
-bool json_isint(JSON json_wrap);
-bool json_isdec(JSON json_wrap);
-bool json_isstr(JSON json_wrap);
-bool json_isobj(JSON json_wrap);
-bool json_isarr(JSON json_wrap);
+/**
+ * @brief  Gets the value of a key
+ * @param  wrap object wrapper 
+ * @param  key null terminated string
+ * @return pointer to value wrapper or NULL
+ */
+JSON* json_get(JSON wrap, const char* key);
+/**
+ * @brief  Reveals if wrapper has an equal in the array
+ * @param  array_wrap json array wrapper
+ * @param  wrap comparing wrapper
+ * @return true if found; false otherwise
+ * @note   Calls json_eq on members
+ */
+bool  json_in(JSON array_wrap, JSON wrap);
+/**
+ * @brief Reassigns the value of a wrapper
+ * @param wrap_ptr wrapper reference
+ * @param new_wrap new value
+ * @note  The old valued is freed with json_free()
+ */
+void  json_reassign(JSON* wrap_ptr, JSON new_wrap);
 
-bool json_is(JSON json_wrap, JSON other_wrap);
-bool json_eq(JSON json_wrap, JSON other_wrap);
+/**
+ * @brief  Null type equality
+ * @param  wrap json wrapper
+ * @return true for matching type; false otherwise
+ */
+bool json_isnull(JSON wrap);
+/**
+ * @brief  Numeric type equality
+ * @param  wrap json wrapper
+ * @return true for matching type; false otherwise
+ */
+bool json_isnum(JSON wrap);
+/**
+ * @brief  Numeric type equality without fractional part
+ * @param  wrap json wrapper
+ * @return true for matching type; false otherwise
+ */
+bool json_isint(JSON wrap);
+/**
+ * @brief  Numeric type equality with fractional part
+ * @param  wrap json wrapper
+ * @return true for matching type; false otherwise
+ */
+bool json_isdec(JSON wrap);
+/**
+ * @brief  String type equality
+ * @param  wrap json wrapper
+ * @return true for matching type; false otherwise
+ */
+bool json_isstr(JSON wrap);
+/**
+ * @brief  Object type equality
+ * @param  wrap json wrapper
+ * @return true for matching type; false otherwise
+ */
+bool json_isobj(JSON wrap);
+/**
+ * @brief  Array type equality
+ * @param  wrap json wrapper
+ * @return true for matching type; false otherwise
+ */
+bool json_isarr(JSON wrap);
+
+/**
+ * @brief  Reference equality
+ * @param  wrap json wrapper
+ * @param  other json wrapper
+ * @return true for matching reference; false otherwise
+ * @note   False if at least one is null
+ */
+bool json_is(JSON wrap, JSON other);
+/**
+ * @brief  Type and value equality
+ * @param  wrap json wrapper
+ * @param  other json wrapper
+ * @return true for matching type and value; false otherwise
+ * @note   Equivalent of === operator in javascript
+ */
+bool json_eq(JSON wrap, JSON other);
 
 /* Parsing */
-JSON json_parse_string(const char* _cstr, size_t len);
+
+/**
+ * @brief  Parse json from a sized string
+ * @param  buf sized string buffer
+ * @param  len length of buffer
+ * @return json wrapper
+ */
+JSON json_parse_string(const char* buf, size_t len);
+/**
+ * @brief  Parse json from a null terminated string
+ * @param  _cstr null terminated string
+ * @return json wrapper
+ */
+JSON json_parse_cstring(const char* _cstr);
+/**
+ * @brief  Parse json from a file
+ * @param  filename cstring
+ * @return json wrapper
+ */
 JSON json_parse_file(const char* filename);
 
 #endif // JSON_C
 
 #ifdef JSON_IMPLEMENTATION
+
+const char* _get_json_token_name(int value) {
+    // unsafe as heck but debug only
+    const char** name = _json_token_names;
+    while (value > 1) {
+        value >>= 1;
+        name++;
+    }
+    return *name;
+}
 
 /*  
     ================================
@@ -432,8 +671,8 @@ JSON* _json_internal_object_multi_alloc(size_t size);
 
 /* Guards: truthy if assert failed */
 
-int JSON_TYPE_GUARD(JSON ptr, JsonType type) {
-    if (ptr && ptr->type == type) return 0;
+int JSON_TYPE_GUARD(JSON wrap, JsonType type) {
+    if (wrap && wrap->type == type) return 0;
     
     fprintf(stderr, "WARNING: Type assert raised\n");
     return 1;
@@ -442,7 +681,7 @@ int JSON_TYPE_GUARD(JSON ptr, JsonType type) {
 /* _String alloc and free */
 
 _String _json_internal_string_from_sv_alloc(const _string_view sv) {
-    _String new_string = (_String)malloc(sizeof(_json_string));
+    _String new_string = malloc(sizeof(_json_string));
     JSON_MEM_ASSERT(new_string);
     
     char* sv_dup = malloc((sv.size + 1) * sizeof(char));
@@ -452,16 +691,18 @@ _String _json_internal_string_from_sv_alloc(const _string_view sv) {
     sv_dup[sv.size] = '\0';
 
     new_string->value = sv_dup;
+    __ALLOC_DEBUG_PRINT("string");
     return new_string;
 }
 
 _String _json_internal_string_alloc(const char* string) {
-    _String new_string = (_String)malloc(sizeof(_json_string));
+    _String new_string = malloc(sizeof(_json_string));
     JSON_MEM_ASSERT(new_string);
     
     new_string->value = strdup(string);
     JSON_MEM_ASSERT(new_string->value);
 
+    __ALLOC_DEBUG_PRINT("string");
     return new_string;
 }
 
@@ -476,10 +717,11 @@ void _json_internal_string_free(_String json_string) {
 /* _Boolean alloc and free */
 
 _Boolean _json_internal_boolean_alloc(bool value) {
-    _Boolean new_boolean = (_Boolean)malloc(sizeof(_json_boolean));
+    _Boolean new_boolean = malloc(sizeof(_json_boolean));
     JSON_MEM_ASSERT(new_boolean);
 
     new_boolean->value = value;
+    __ALLOC_DEBUG_PRINT("boolean");
     return new_boolean;
 }
 
@@ -490,14 +732,14 @@ void _json_internal_boolean_free(_Boolean json_boolean) {
     }
 }
 
-
 /* _Number alloc and free */
 
 _Number _json_internal_number_alloc(double value) {
-    _Number new_number = (_Number)malloc(sizeof(_json_number));
+    _Number new_number = malloc(sizeof(_json_number));
     JSON_MEM_ASSERT(new_number);
 
     new_number->value = value;
+    __ALLOC_DEBUG_PRINT("number");
     return new_number;
 }
 
@@ -510,8 +752,8 @@ void _json_internal_number_free(_Number json_number) {
 
 /* _KeyValue alloc and free */
 
-_KeyValue _json_internal_kv_sv_alloc(const _string_view sv, JSON json_wrap) {
-    _KeyValue new_key_value = (_KeyValue)malloc(sizeof(_json_key_value_pair));
+_KeyValue _json_internal_kv_sv_alloc(const _string_view sv, JSON wrap) {
+    _KeyValue new_key_value = malloc(sizeof(_json_key_value_pair));
     JSON_MEM_ASSERT(new_key_value);
 
     char* sv_dup = malloc((sv.size + 1) * sizeof(char));
@@ -522,18 +764,20 @@ _KeyValue _json_internal_kv_sv_alloc(const _string_view sv, JSON json_wrap) {
 
     new_key_value->key = sv_dup;
 
-    new_key_value->value = json_wrap;
+    new_key_value->value = wrap;
+    __ALLOC_DEBUG_PRINT("key value");
     return new_key_value;
 }
 
-_KeyValue _json_internal_kv_alloc(const char* key, JSON json_wrap) {
-    _KeyValue new_key_value = (_KeyValue)malloc(sizeof(_json_key_value_pair));
+_KeyValue _json_internal_kv_alloc(const char* key, JSON wrap) {
+    _KeyValue new_key_value = malloc(sizeof(_json_key_value_pair));
     JSON_MEM_ASSERT(new_key_value);
 
     new_key_value->key = strdup(key);
     JSON_MEM_ASSERT(new_key_value->key);
 
-    new_key_value->value = json_wrap;
+    new_key_value->value = wrap;
+    __ALLOC_DEBUG_PRINT("key value");
     return new_key_value;
 }
 
@@ -549,7 +793,7 @@ void _json_internal_kv_free(_KeyValue key_value) {
 /* _Object alloc and free */
 
 _Object _json_internal_object_alloc() {
-    _Object new_object = (_Object)malloc(sizeof(_json_object));
+    _Object new_object = malloc(sizeof(_json_object));
     JSON_MEM_ASSERT(new_object);
 
     new_object->pairs = _json_internal_kv_multi_alloc(JSON_MULTIOBJECT_INITIAL_CAP);
@@ -557,11 +801,12 @@ _Object _json_internal_object_alloc() {
 
     new_object->_capacity = JSON_MULTIOBJECT_INITIAL_CAP;
     new_object->keys = 0;
+    __ALLOC_DEBUG_PRINT("object");
     return new_object;
 }
 
 _KeyValue* _json_internal_kv_multi_alloc(size_t size) {
-    _KeyValue* new_multi_key_value = (_KeyValue*)malloc(sizeof(_KeyValue) * size);
+    _KeyValue* new_multi_key_value = malloc(sizeof(_KeyValue) * size);
     JSON_MEM_ASSERT(new_multi_key_value);
 
     return new_multi_key_value;
@@ -582,7 +827,7 @@ void _json_internal_object_free(_Object object) {
 /* _Array alloc and free */
 
 _Array _json_internal_array_alloc() {
-    _Array new_array = (_Array)malloc(sizeof(_json_array));
+    _Array new_array = malloc(sizeof(_json_array));
     JSON_MEM_ASSERT(new_array);
 
     new_array->objects = _json_internal_object_multi_alloc(JSON_MULTIOBJECT_INITIAL_CAP);
@@ -590,11 +835,12 @@ _Array _json_internal_array_alloc() {
 
     new_array->_capacity = JSON_MULTIOBJECT_INITIAL_CAP;
     new_array->size = 0;
+    __ALLOC_DEBUG_PRINT("array");
     return new_array;
 }
 
 JSON* _json_internal_object_multi_alloc(size_t size) {
-    JSON* new_multi_object = (JSON*)malloc(sizeof(JSON) * size);
+    JSON* new_multi_object = malloc(sizeof(JSON) * size);
     JSON_MEM_ASSERT(new_multi_object);
 
     return new_multi_object;
@@ -615,95 +861,97 @@ void _json_internal_array_free(_Array array) {
 /* JSON alloc and free */
 
 JSON json_null_alloc() {
-    JSON new_json_wrap = (JSON)malloc(sizeof(_json_object_wrap));
-    JSON_MEM_ASSERT(new_json_wrap);
+    JSON new_wrap = malloc(sizeof(_json_object_wrap));
+    JSON_MEM_ASSERT(new_wrap);
 
-    new_json_wrap->type = JSON_NULL;
-    new_json_wrap->object = NULL;
-    return new_json_wrap;
+    new_wrap->type = JSON_NULL;
+    new_wrap->object = NULL;
+
+    __ALLOC_DEBUG_PRINT("null");
+    return new_wrap;
 }
 
 JSON json_number_alloc(double number) {
-    JSON new_json_wrap = (JSON)malloc(sizeof(_json_object_wrap));
-    JSON_MEM_ASSERT(new_json_wrap);
+    JSON new_wrap = malloc(sizeof(_json_object_wrap));
+    JSON_MEM_ASSERT(new_wrap);
 
-    new_json_wrap->type = JSON_NUMBER;
-    new_json_wrap->number = _json_internal_number_alloc(number);
-    JSON_MEM_ASSERT(new_json_wrap->number);
+    new_wrap->type = JSON_NUMBER;
+    new_wrap->number = _json_internal_number_alloc(number);
+    JSON_MEM_ASSERT(new_wrap->number);
 
-    return new_json_wrap;
+    return new_wrap;
 }
 
 JSON json_boolean_alloc(bool boolean) {
-    JSON new_json_wrap = (JSON)malloc(sizeof(_json_object_wrap));
-    JSON_MEM_ASSERT(new_json_wrap);
+    JSON new_wrap = malloc(sizeof(_json_object_wrap));
+    JSON_MEM_ASSERT(new_wrap);
 
-    new_json_wrap->type = JSON_BOOLEAN;
-    new_json_wrap->boolean = _json_internal_boolean_alloc(boolean);
-    JSON_MEM_ASSERT(new_json_wrap->boolean);
+    new_wrap->type = JSON_BOOLEAN;
+    new_wrap->boolean = _json_internal_boolean_alloc(boolean);
+    JSON_MEM_ASSERT(new_wrap->boolean);
 
-    return new_json_wrap;
+    return new_wrap;
 }
 
 JSON json_string_alloc(const char* string) {
-    JSON new_json_wrap = (JSON)malloc(sizeof(_json_object_wrap));
-    JSON_MEM_ASSERT(new_json_wrap);
+    JSON new_wrap = malloc(sizeof(_json_object_wrap));
+    JSON_MEM_ASSERT(new_wrap);
 
-    new_json_wrap->string = _json_internal_string_alloc(string);
-    JSON_MEM_ASSERT(new_json_wrap->string);
+    new_wrap->string = _json_internal_string_alloc(string);
+    JSON_MEM_ASSERT(new_wrap->string);
 
-    new_json_wrap->type = JSON_STRING;
-    return new_json_wrap;
+    new_wrap->type = JSON_STRING;
+    return new_wrap;
 }
 
 JSON json_string_from_sv_alloc(const _string_view sv) {
-    JSON new_json_wrap = (JSON)malloc(sizeof(_json_object_wrap));
-    JSON_MEM_ASSERT(new_json_wrap);
+    JSON new_wrap = malloc(sizeof(_json_object_wrap));
+    JSON_MEM_ASSERT(new_wrap);
 
-    new_json_wrap->string = _json_internal_string_from_sv_alloc(sv);
-    JSON_MEM_ASSERT(new_json_wrap->string);
+    new_wrap->string = _json_internal_string_from_sv_alloc(sv);
+    JSON_MEM_ASSERT(new_wrap->string);
 
-    new_json_wrap->type = JSON_STRING;
-    return new_json_wrap;
+    new_wrap->type = JSON_STRING;
+    return new_wrap;
 }
 
 JSON json_object_alloc() {
-    JSON new_json_wrap = (JSON)malloc(sizeof(_json_object_wrap));
-    JSON_MEM_ASSERT(new_json_wrap);
+    JSON new_wrap = malloc(sizeof(_json_object_wrap));
+    JSON_MEM_ASSERT(new_wrap);
 
-    new_json_wrap->object = _json_internal_object_alloc();
-    JSON_MEM_ASSERT(new_json_wrap->object);
+    new_wrap->object = _json_internal_object_alloc();
+    JSON_MEM_ASSERT(new_wrap->object);
 
-    new_json_wrap->type = JSON_OBJECT;
-    return new_json_wrap;
+    new_wrap->type = JSON_OBJECT;
+    return new_wrap;
 }
 
 JSON json_array_alloc() {
-    JSON new_json_wrap = (JSON)malloc(sizeof(_json_object_wrap));
-    JSON_MEM_ASSERT(new_json_wrap);
+    JSON new_wrap = malloc(sizeof(_json_object_wrap));
+    JSON_MEM_ASSERT(new_wrap);
 
-    new_json_wrap->array = _json_internal_array_alloc();
-    JSON_MEM_ASSERT(new_json_wrap->array);
+    new_wrap->array = _json_internal_array_alloc();
+    JSON_MEM_ASSERT(new_wrap->array);
 
-    new_json_wrap->type = JSON_ARRAY;
-    return new_json_wrap;
+    new_wrap->type = JSON_ARRAY;
+    return new_wrap;
 }
 
-void json_free(JSON json_wrap) {
-    if (json_wrap) {
-        switch (json_wrap->type) {
-            case JSON_NUMBER:  _json_internal_number_free(json_wrap->number); break;
-            case JSON_BOOLEAN: _json_internal_boolean_free(json_wrap->boolean); break;
-            case JSON_STRING:  _json_internal_string_free(json_wrap->string); break;
-            case JSON_OBJECT:  _json_internal_object_free(json_wrap->object); break;
-            case JSON_ARRAY:   _json_internal_array_free(json_wrap->array); break;
+void json_free(JSON wrap) {
+    if (wrap) {
+        switch (wrap->type) {
+            case JSON_NUMBER:  _json_internal_number_free(wrap->number); break;
+            case JSON_BOOLEAN: _json_internal_boolean_free(wrap->boolean); break;
+            case JSON_STRING:  _json_internal_string_free(wrap->string); break;
+            case JSON_OBJECT:  _json_internal_object_free(wrap->object); break;
+            case JSON_ARRAY:   _json_internal_array_free(wrap->array); break;
             case JSON_NULL:    __FREE_DEBUG_PRINT("null"); break;
             default: {
                 fprintf(stderr, "WARNING: Free error\n");
                 return;
             }
         }
-        free(json_wrap);
+        free(wrap);
     }
 }
 
@@ -739,22 +987,22 @@ _Array _json_internal_array_copy(_Array array) {
     return new_array;
 }
 
-JSON json_copy(JSON json_wrap) {
-    if (!json_wrap) return NULL;
+JSON json_copy(JSON wrap) {
+    if (!wrap) return NULL;
 
-    switch (json_wrap->type) {
-        case JSON_NUMBER:  return json_number_alloc(json_wrap->number->value);
-        case JSON_BOOLEAN: return json_boolean_alloc(json_wrap->boolean->value);
-        case JSON_STRING:  return json_string_alloc(json_wrap->string->value);
+    switch (wrap->type) {
+        case JSON_NUMBER:  return json_number_alloc(wrap->number->value);
+        case JSON_BOOLEAN: return json_boolean_alloc(wrap->boolean->value);
+        case JSON_STRING:  return json_string_alloc(wrap->string->value);
         case JSON_NULL:    return json_null_alloc();
         case JSON_OBJECT: {
             JSON json_ret = json_object_alloc();
-            json_ret->object = _json_internal_object_copy(json_wrap->object);
+            json_ret->object = _json_internal_object_copy(wrap->object);
             return json_ret;
         }
         case JSON_ARRAY: {
             JSON json_ret = json_array_alloc();
-            json_ret->array = _json_internal_array_copy(json_wrap->array);
+            json_ret->array = _json_internal_array_copy(wrap->array);
             return json_ret;
         }
         default: {
@@ -770,10 +1018,10 @@ JSON json_copy(JSON json_wrap) {
     ================================
 */ 
 
-bool json_add_key_sv_value(JSON json_obj, const _string_view sv, JSON value) {
-    if (JSON_TYPE_GUARD(json_obj, JSON_OBJECT)) return false;
+bool json_add_key_sv_value(JSON wrap, const _string_view sv, JSON value) {
+    if (JSON_TYPE_GUARD(wrap, JSON_OBJECT)) return false;
 
-    _Object ob = json_obj->object;
+    _Object ob = wrap->object;
 
     for (size_t i = 0; i < ob->keys; i++) {
         if (strncmp(ob->pairs[i]->key, sv.data, sv.size) == 0) {
@@ -794,10 +1042,10 @@ bool json_add_key_sv_value(JSON json_obj, const _string_view sv, JSON value) {
     return true;    
 }
 
-bool json_add_key_value(JSON json_obj, const char* key, JSON value) {
-    if (JSON_TYPE_GUARD(json_obj, JSON_OBJECT)) return false;
+bool json_add_key_value(JSON wrap, const char* key, JSON value) {
+    if (JSON_TYPE_GUARD(wrap, JSON_OBJECT)) return false;
 
-    _Object ob = json_obj->object;
+    _Object ob = wrap->object;
 
     for (size_t i = 0; i < ob->keys; i++) {
         if (strcmp(ob->pairs[i]->key, key) == 0) {
@@ -818,12 +1066,12 @@ bool json_add_key_value(JSON json_obj, const char* key, JSON value) {
     return true;    
 }
 
-JSON* json_get(JSON json_obj, const char* key) {
-    if (JSON_TYPE_GUARD(json_obj, JSON_OBJECT)) return NULL;
+JSON* json_get(JSON wrap, const char* key) {
+    if (JSON_TYPE_GUARD(wrap, JSON_OBJECT)) return NULL;
 
-    for (size_t i = 0; i < json_obj->object->keys; i++)
-        if (strcmp(key, json_obj->object->pairs[i]->key) == 0)
-            return &json_obj->object->pairs[i]->value;
+    for (size_t i = 0; i < wrap->object->keys; i++)
+        if (strcmp(key, wrap->object->pairs[i]->key) == 0)
+            return &wrap->object->pairs[i]->value;
 
     return NULL;
 }
@@ -839,17 +1087,17 @@ bool json_in(JSON json_array, JSON json_wrap) {
     return false;
 }
 
-void json_reassign(JSON* json_wrap_ptr, JSON new_wrap) {
-    if (json_wrap_ptr && new_wrap) {
-        json_free(*json_wrap_ptr);
-        *json_wrap_ptr = new_wrap;
+void json_reassign(JSON* wrap_ptr, JSON new_wrap) {
+    if (wrap_ptr && new_wrap) {
+        json_free(*wrap_ptr);
+        *wrap_ptr = new_wrap;
     }
 }
 
-bool json_push(JSON json_array, JSON value) {
-    if (JSON_TYPE_GUARD(json_array, JSON_ARRAY)) return false;
+bool json_push(JSON array_wrap, JSON value) {
+    if (JSON_TYPE_GUARD(array_wrap, JSON_ARRAY)) return false;
 
-    _Array ar = json_array->array;
+    _Array ar = array_wrap->array;
 
     if (ar->size == ar->_capacity) {
         size_t new_capacity = ar->_capacity * 2;
@@ -864,33 +1112,33 @@ bool json_push(JSON json_array, JSON value) {
     return true;
 }
 
-void json_foreach(JSON json_array, void (*func)(JSON)) {
-    if (JSON_TYPE_GUARD(json_array, JSON_ARRAY)) return;
+void json_foreach(JSON array_wrap, void (*action)(JSON)) {
+    if (JSON_TYPE_GUARD(array_wrap, JSON_ARRAY)) return;
     
-    _Array ar = json_array->array;
+    _Array ar = array_wrap->array;
     for (size_t i = 0; i < ar->size; i++)
-        func(ar->objects[i]);
+        action(ar->objects[i]);
 }
 
-double json_reducenum(JSON json_array, double accumulator, double (*func)(JSON, double)) {
-    if (JSON_TYPE_GUARD(json_array, JSON_ARRAY)) exit(EXIT_FAILURE);
+double json_reducenum(JSON array_wrap, double accumulator, double (*action)(JSON, double)) {
+    if (JSON_TYPE_GUARD(array_wrap, JSON_ARRAY)) return 0.0;
     
-    _Array ar = json_array->array;
+    _Array ar = array_wrap->array;
     for (size_t i = 0; i < ar->size; i++) {
-        if (JSON_TYPE_GUARD(ar->objects[i], JSON_NUMBER)) exit(EXIT_FAILURE);
-        accumulator = func(ar->objects[i], accumulator);
+        if (JSON_TYPE_GUARD(ar->objects[i], JSON_NUMBER)) continue;
+        accumulator = action(ar->objects[i], accumulator);
     }
 
     return accumulator;
 }
 
-bool json_reducebool(JSON json_array, bool accumulator, bool (*func)(JSON, bool)) {
-    if (JSON_TYPE_GUARD(json_array, JSON_ARRAY)) exit(EXIT_FAILURE);
+bool json_reducebool(JSON array_wrap, bool accumulator, bool (*action)(JSON, bool)) {
+    if (JSON_TYPE_GUARD(array_wrap, JSON_ARRAY)) return false;
     
-    _Array ar = json_array->array;
+    _Array ar = array_wrap->array;
     for (size_t i = 0; i < ar->size; i++) {
-        if (JSON_TYPE_GUARD(ar->objects[i], JSON_BOOLEAN)) exit(EXIT_FAILURE);
-        accumulator = func(ar->objects[i], accumulator);
+        if (JSON_TYPE_GUARD(ar->objects[i], JSON_BOOLEAN)) continue;
+        accumulator = action(ar->objects[i], accumulator);
     }
 
     return accumulator;
@@ -902,59 +1150,57 @@ bool json_reducebool(JSON json_array, bool accumulator, bool (*func)(JSON, bool)
     ================================
 */ 
 
-bool json_isnull(JSON json_wrap) {
-    return json_wrap && 
-    json_wrap->object && 
-    json_wrap->type == JSON_NULL;
+bool json_isnull(JSON wrap) {
+    return wrap && 
+    wrap->object && 
+    wrap->type == JSON_NULL;
 }
 
-bool json_isnum(JSON json_wrap) {
-    return json_wrap && 
-    json_wrap->number &&
-    json_wrap->type == JSON_NUMBER;
+bool json_isnum(JSON wrap) {
+    return wrap && 
+    wrap->number &&
+    wrap->type == JSON_NUMBER;
 }
 
-bool json_isint(JSON json_wrap) {
-    return json_isnum(json_wrap) &&
-    JSON_HAS_NO_FRACTIONAL_PART(json_wrap->number->value);
+bool json_isint(JSON wrap) {
+    return json_isnum(wrap) &&
+    JSON_HAS_NO_FRACTIONAL_PART(wrap->number->value);
 }
 
-bool json_isdec(JSON json_wrap) {
-    return json_isnum(json_wrap) && 
-    !JSON_HAS_NO_FRACTIONAL_PART(json_wrap->number->value);
+bool json_isdec(JSON wrap) {
+    return json_isnum(wrap) && 
+    !JSON_HAS_NO_FRACTIONAL_PART(wrap->number->value);
 }
 
-bool json_isstr(JSON json_wrap) {
-    return json_wrap &&
-    json_wrap->string && 
-    json_wrap->type == JSON_STRING;
+bool json_isstr(JSON wrap) {
+    return wrap &&
+    wrap->string && 
+    wrap->type == JSON_STRING;
 }
 
-bool json_isobj(JSON json_wrap) {
-    return json_wrap &&
-    json_wrap->object && 
-    json_wrap->type == JSON_OBJECT;
+bool json_isobj(JSON wrap) {
+    return wrap &&
+    wrap->object && 
+    wrap->type == JSON_OBJECT;
 }
 
-bool json_isarr(JSON json_wrap) {
-    return json_wrap && 
-    json_wrap->array && 
-    json_wrap->type == JSON_ARRAY;
+bool json_isarr(JSON wrap) {
+    return wrap && 
+    wrap->array && 
+    wrap->type == JSON_ARRAY;
 }
 
-bool json_is(JSON json_wrap, JSON other_wrap) {
-    return json_wrap && 
-    json_wrap == other_wrap && 
-    json_wrap->type == other_wrap->type; 
+bool json_is(JSON wrap, JSON other) {
+    return wrap && wrap == other;
 }
 
-bool json_eq(JSON json_wrap, JSON other_wrap) {
+bool json_eq(JSON wrap, JSON other) {
 
-    if (json_wrap && other_wrap && json_wrap->type == other_wrap->type) {
-        switch (json_wrap->type) {
-            case JSON_NUMBER: return json_wrap->number->value == other_wrap->number->value;
-            case JSON_BOOLEAN: return json_wrap->boolean->value == other_wrap->boolean->value;
-            case JSON_STRING : return strcmp(json_wrap->string->value, other_wrap->string->value) == 0;
+    if (wrap && other && wrap->type == other->type) {
+        switch (wrap->type) {
+            case JSON_NUMBER:  return wrap->number->value == other->number->value;
+            case JSON_BOOLEAN: return wrap->boolean->value == other->boolean->value;
+            case JSON_STRING : return strcmp(wrap->string->value, other->string->value) == 0;
             default: return false;
         }
     }
@@ -1000,7 +1246,7 @@ void json_string_reset(JSON json_str, const char* value) {
     ================================
 */ 
 
-void _indent_json_object_wrap_write(Writer* writer, size_t depth, JSON json_wrap);
+void _indent_json_object_wrap_write(Writer* writer, size_t depth, JSON wrap);
 
 void _writef_indent(Writer* writer, size_t depth) {
     while (depth-- > 0) writer_writef(writer, __JSON_TABULATION);
@@ -1079,20 +1325,20 @@ void _indent_json_internal_object_write(Writer* writer, size_t depth, _Object ob
     writer_writef(writer, __JSON_OBJECT_CLOSE);
 }
 
-void _indent_json_object_wrap_write(Writer* writer, size_t depth, JSON json_wrap) {
+void _indent_json_object_wrap_write(Writer* writer, size_t depth, JSON wrap) {
 
-    switch(json_wrap->type) {
+    switch(wrap->type) {
 
         case JSON_NUMBER:
-            _json_internal_number_write(writer, json_wrap->number);
+            _json_internal_number_write(writer, wrap->number);
         break;
 
         case JSON_BOOLEAN:
-            _json_internal_boolean_write(writer, json_wrap->boolean);
+            _json_internal_boolean_write(writer, wrap->boolean);
         break;
 
         case JSON_STRING:
-            _json_internal_string_write(writer, json_wrap->string);
+            _json_internal_string_write(writer, wrap->string);
         break;
 
         case JSON_NULL:
@@ -1100,17 +1346,17 @@ void _indent_json_object_wrap_write(Writer* writer, size_t depth, JSON json_wrap
         break;
 
         case JSON_ARRAY:
-            _indent_json_internal_array_write(writer, depth, json_wrap->array);
+            _indent_json_internal_array_write(writer, depth, wrap->array);
         break;
 
         case JSON_OBJECT:
-            _indent_json_internal_object_write(writer, depth, json_wrap->object);
+            _indent_json_internal_object_write(writer, depth, wrap->object);
         break;
     }
 }
 
-void json_write(Writer* writer, JSON json_wrap) {
-    _indent_json_object_wrap_write(writer, 0, json_wrap);
+void json_write(Writer* writer, JSON wrap) {
+    _indent_json_object_wrap_write(writer, 0, wrap);
     _writef_line(writer, "");
 }
 
@@ -1119,16 +1365,6 @@ void json_write(Writer* writer, JSON json_wrap) {
      Lexing utils  
     ================================
 */
-
-const char* _get_json_token_name(int value) {
-    // unsafe as heck but debug only
-    const char** name = _json_token_names;
-    while (value > 1) {
-        value >>= 1;
-        name++;
-    }
-    return *name;
-}
 
 char* _read_file_to_cstr(const char* filename, size_t* len) {
 
@@ -1222,6 +1458,7 @@ void _json_lexer_init(_json_lexer* lexer, const char* buf, size_t len) {
     lexer->tape_size = len;
     lexer->source = buf;
 }
+
 void _json_update_lex_state(_json_lexer* lexer, _json_ast_token* token, size_t lookat, size_t begin) {
     lexer->cursor = lookat;
     token->col = 1 + begin - lexer->line_begin;
@@ -1394,62 +1631,74 @@ RETURN:
     ================================
 */
 
-bool _json_parse_json(_json_lexer* lexer, _json_ast_token** lookahead_ptr, _json_ast_token** parent);
-bool _json_parse_array_body(_json_lexer* lexer, _json_ast_token** lookahead_ptr, _json_ast_token** parent);
-bool _json_parse_array_tail(_json_lexer* lexer, _json_ast_token** lookahead_ptr, _json_ast_token** sibling);
-bool _json_parse_object_body(_json_lexer* lexer, _json_ast_token** lookahead_ptr, _json_ast_token** parent);
-bool _json_parse_object_tail(_json_lexer* lexer, _json_ast_token** lookahead_ptr, _json_ast_token** sibling);
+const _json_token_type JSON_FIRST_SET_JSON       = JSON_TOKEN_STRING | JSON_TOKEN_NUMBER | JSON_TOKEN_BOOLEAN | JSON_TOKEN_NULL | JSON_TOKEN_LBRACE | JSON_TOKEN_LBRACKET;
 
-bool _json_parse_match(_json_lexer* lexer, _json_ast_token** lookahead_ptr, _json_token_type type) {
-    if ((*lookahead_ptr)->type == type) {
-        if ((*lookahead_ptr)->type != JSON_TOKEN_EOF)
-            *lookahead_ptr = _lex_next_token(lexer);
+const _json_token_type JSON_FOLLOW_SET_ARRAYBODY  = JSON_TOKEN_RBRACKET;
+const _json_token_type JSON_FOLLOW_SET_ARRAYTAIL  = JSON_TOKEN_RBRACKET;
+const _json_token_type JSON_FOLLOW_SET_OBJECTBODY = JSON_TOKEN_RBRACE;
+const _json_token_type JSON_FOLLOW_SET_OBJECTTAIL = JSON_TOKEN_RBRACE;
+
+bool _json_parse_json(_json_parser* parser, _json_ast_token** parent);
+bool _json_parse_array_body(_json_parser* parser, _json_ast_token** parent);
+bool _json_parse_array_tail(_json_parser* parser, _json_ast_token** sibling);
+bool _json_parse_object_body(_json_parser* parser, _json_ast_token** parent);
+bool _json_parse_object_tail(_json_parser* parser, _json_ast_token** sibling);
+
+void _json_parser_init(_json_parser* parser, _json_lexer* lexer) {
+    parser->lexer = lexer;
+    parser->lookahead = _lex_next_token(lexer);
+}
+
+bool _json_parse_match(_json_parser* parser, _json_token_type type) {
+    if (parser->lookahead->type == type) {
+        if (parser->lookahead->type != JSON_TOKEN_EOF)
+            parser->lookahead = _lex_next_token(parser->lexer);
         return true;
     }
-    JSON_LOG_PARSE_ERROR_MATCH(type, **lookahead_ptr);
+    JSON_LOG_PARSE_ERROR_MATCH(type, *parser->lookahead);
     return false;
 }
 
-bool _json_parse_match_set(_json_lexer* lexer, _json_ast_token** lookahead_ptr, _json_ast_token** parent, _json_token_type type) {
-    if ((*lookahead_ptr)->type == type) {
-        *parent = *lookahead_ptr;
-        *lookahead_ptr = _lex_next_token(lexer);
+bool _json_parse_match_set(_json_parser* parser, _json_ast_token** parent, _json_token_type type) {
+    if (parser->lookahead->type == type) {
+        *parent = parser->lookahead;
+        parser->lookahead = _lex_next_token(parser->lexer);
         return true;
     }
-    JSON_LOG_PARSE_ERROR_MATCH(type, **lookahead_ptr);
+    JSON_LOG_PARSE_ERROR_MATCH(type, *parser->lookahead);
     return false;
 }
 
-bool _json_parse_json(_json_lexer* lexer, _json_ast_token** lookahead_ptr, _json_ast_token** parent) {
+bool _json_parse_json(_json_parser* parser, _json_ast_token** parent) {
     _json_ast_token* constructed = NULL;
     _json_ast_token* child = NULL;
     
-    const _json_ast_token* const lookahead = *lookahead_ptr;
+    const _json_ast_token* const lookahead = parser->lookahead;
     if (lookahead->type & JSON_TOKEN_NUMBER) {
-        if (_json_parse_match_set(lexer, lookahead_ptr, &constructed, JSON_TOKEN_NUMBER)) {
+        if (_json_parse_match_set(parser, &constructed, JSON_TOKEN_NUMBER)) {
             *parent = constructed;
             return true;
         }
     } else if (lookahead->type & JSON_TOKEN_NULL) {
-        if (_json_parse_match_set(lexer, lookahead_ptr, &constructed, JSON_TOKEN_NULL)) {
+        if (_json_parse_match_set(parser, &constructed, JSON_TOKEN_NULL)) {
             *parent = constructed;
             return true;
         }
     } else if (lookahead->type & JSON_TOKEN_BOOLEAN) {
-        if (_json_parse_match_set(lexer, lookahead_ptr, &constructed, JSON_TOKEN_BOOLEAN)) {
+        if (_json_parse_match_set(parser, &constructed, JSON_TOKEN_BOOLEAN)) {
             *parent = constructed;
             return true;
         }
     } else if (lookahead->type & JSON_TOKEN_STRING) {
-        if (_json_parse_match_set(lexer, lookahead_ptr, &constructed, JSON_TOKEN_STRING)) {
+        if (_json_parse_match_set(parser, &constructed, JSON_TOKEN_STRING)) {
             *parent = constructed;
             return true;
         }
     } else if (lookahead->type & JSON_TOKEN_LBRACKET) {
         if (
-            _json_parse_match_set(lexer, lookahead_ptr, &constructed, JSON_TOKEN_LBRACKET) && 
-            _json_parse_array_body(lexer, lookahead_ptr, &child) &&
-            _json_parse_match(lexer, lookahead_ptr, JSON_TOKEN_RBRACKET)
+            _json_parse_match_set(parser, &constructed, JSON_TOKEN_LBRACKET) && 
+            _json_parse_array_body(parser, &child) &&
+            _json_parse_match(parser, JSON_TOKEN_RBRACKET)
         ) {
             constructed->child = child;
             *parent = constructed;
@@ -1457,26 +1706,26 @@ bool _json_parse_json(_json_lexer* lexer, _json_ast_token** lookahead_ptr, _json
         }
     } else if (lookahead->type & JSON_TOKEN_LBRACE) {
         if (
-            _json_parse_match_set(lexer, lookahead_ptr, &constructed, JSON_TOKEN_LBRACE) && 
-            _json_parse_object_body(lexer, lookahead_ptr, &child) && 
-            _json_parse_match(lexer, lookahead_ptr, JSON_TOKEN_RBRACE)
+            _json_parse_match_set(parser, &constructed, JSON_TOKEN_LBRACE) && 
+            _json_parse_object_body(parser, &child) && 
+            _json_parse_match(parser, JSON_TOKEN_RBRACE)
         ) {
             constructed->child = child;
             *parent = constructed;
             return true;
         }
     }
-    JSON_LOG_PARSE_ERROR("expected a json", **lookahead_ptr);
+    JSON_LOG_PARSE_ERROR("expected a json", *parser->lookahead);
     return false;
 }
 
-bool _json_parse_array_body(_json_lexer* lexer, _json_ast_token** lookahead_ptr, _json_ast_token** parent) {
+bool _json_parse_array_body(_json_parser* parser, _json_ast_token** parent) {
     _json_ast_token* sibling = NULL;    
-    const _json_ast_token* const  lookahead = *lookahead_ptr;
+    const _json_ast_token* const  lookahead = parser->lookahead;
     if (lookahead->type & JSON_FIRST_SET_JSON) {
         if (
-            _json_parse_json(lexer, lookahead_ptr, parent) && 
-            _json_parse_array_tail(lexer, lookahead_ptr, &sibling)
+            _json_parse_json(parser, parent) && 
+            _json_parse_array_tail(parser, &sibling)
         ) { // JSON ARRAYTAIL
             (*parent)->next = sibling;
             return true;
@@ -1484,36 +1733,36 @@ bool _json_parse_array_body(_json_lexer* lexer, _json_ast_token** lookahead_ptr,
     } else if (lookahead->type & JSON_FOLLOW_SET_ARRAYBODY) { // epsilon
         return true;
     }
-    JSON_LOG_PARSE_ERROR("bad array format", **lookahead_ptr);
+    JSON_LOG_PARSE_ERROR("bad array format", *parser->lookahead);
     return false;
 }
 
-bool _json_parse_array_tail(_json_lexer* lexer, _json_ast_token** lookahead_ptr, _json_ast_token** sibling) {
-    const _json_ast_token* const lookahead = *lookahead_ptr;
+bool _json_parse_array_tail(_json_parser* parser, _json_ast_token** sibling) {
+    const _json_ast_token* const lookahead = parser->lookahead;
     if (lookahead->type & JSON_TOKEN_COMMA) {
         if (
-            _json_parse_match(lexer, lookahead_ptr, JSON_TOKEN_COMMA) && 
-            _json_parse_array_body(lexer, lookahead_ptr, sibling)
+            _json_parse_match(parser, JSON_TOKEN_COMMA) && 
+            _json_parse_array_body(parser, sibling)
         ) { // comma ARRAYBODY
             return true;
         }
     } else if (lookahead->type & JSON_FOLLOW_SET_ARRAYTAIL) { // epsilon
         return true;
     }
-    JSON_LOG_PARSE_ERROR("unterminated array", **lookahead_ptr);
+    JSON_LOG_PARSE_ERROR("unterminated array", *parser->lookahead);
     return false;
 }
 
-bool _json_parse_object_body(_json_lexer* lexer, _json_ast_token** lookahead_ptr, _json_ast_token** parent) {
+bool _json_parse_object_body(_json_parser* parser, _json_ast_token** parent) {
     _json_ast_token* sibling1 = NULL;
     _json_ast_token* sibling2 = NULL;
-    _json_ast_token* lookahead = *lookahead_ptr;
+    _json_ast_token* lookahead = parser->lookahead;
     if (lookahead->type & JSON_TOKEN_STRING) {
         if (
-            _json_parse_match_set(lexer, lookahead_ptr, parent, JSON_TOKEN_STRING) &&
-            _json_parse_match(lexer, lookahead_ptr, JSON_TOKEN_COLON) &&
-            _json_parse_json(lexer, lookahead_ptr, &sibling1) &&
-            _json_parse_object_tail(lexer, lookahead_ptr, &sibling2)
+            _json_parse_match_set(parser, parent, JSON_TOKEN_STRING) &&
+            _json_parse_match(parser, JSON_TOKEN_COLON) &&
+            _json_parse_json(parser, &sibling1) &&
+            _json_parse_object_tail(parser, &sibling2)
         ) { // strlit colon JSON OBJECTTAIL
             sibling1->next = sibling2;
             (*parent)->next = sibling1;
@@ -1522,23 +1771,23 @@ bool _json_parse_object_body(_json_lexer* lexer, _json_ast_token** lookahead_ptr
     } else if (lookahead->type & JSON_FOLLOW_SET_OBJECTBODY) { // epsilon
         return true;
     }
-    JSON_LOG_PARSE_ERROR("bad object format", **lookahead_ptr);
+    JSON_LOG_PARSE_ERROR("bad object format", *parser->lookahead);
     return false;
 }
 
-bool _json_parse_object_tail(_json_lexer* lexer, _json_ast_token** lookahead_ptr, _json_ast_token** parent) {
-    _json_ast_token* lookahead = *lookahead_ptr;
+bool _json_parse_object_tail(_json_parser* parser, _json_ast_token** parent) {
+    _json_ast_token* lookahead = parser->lookahead;
     if (lookahead->type & JSON_TOKEN_COMMA) {
         if (
-            _json_parse_match(lexer, lookahead_ptr, JSON_TOKEN_COMMA) && 
-            _json_parse_object_body(lexer, lookahead_ptr, parent)
+            _json_parse_match(parser, JSON_TOKEN_COMMA) && 
+            _json_parse_object_body(parser, parent)
         ) { // comma OBJECTBODY
             return true;
         }
     } else if (lookahead->type & JSON_FOLLOW_SET_OBJECTTAIL) { // epsilon
         return true;
     }
-    JSON_LOG_PARSE_ERROR("unterminated object", **lookahead_ptr);
+    JSON_LOG_PARSE_ERROR("unterminated object", *parser->lookahead);
     return false;
 }
 
@@ -1582,27 +1831,36 @@ JSON _json_build_from_ast(const _json_ast_token* const base) {
     return NULL;
 }
 
-JSON json_parse_string(const char* buf, size_t len) {
+JSON _json_internal_parse(const char* buf, size_t len) {
     _json_global_arena_ensure_init();
 
-    JSON json_wrap = NULL;
-    
+    JSON wrap = NULL;
+
     _json_lexer lexer = {0};
     _json_lexer_init(&lexer, buf, len);
+    _json_parser parser = {0};
+    _json_parser_init(&parser, &lexer);
 
-    _json_ast_token* lookahead = _lex_next_token(&lexer);
-    _json_ast_token* base = lookahead;
+    _json_ast_token* base = parser.lookahead;
     if (
-        _json_parse_json(&lexer, &lookahead, &base) && 
-        _json_parse_match(&lexer, &lookahead, JSON_TOKEN_EOF)
+        _json_parse_json(&parser, &base) && 
+        _json_parse_match(&parser, JSON_TOKEN_EOF)
     ) {
-        json_wrap = _json_build_from_ast(base);
+        wrap = _json_build_from_ast(base);
     } else {
         printf("ERROR: %s\n", JSON_GET_PARSE_ERROR());
     }
     
     _json_global_arena_reset();
-    return json_wrap;
+    return wrap;
+}
+
+JSON json_parse_cstring(const char* _cstr) {
+    return json_parse_string(_cstr, strlen(_cstr));
+}
+
+JSON json_parse_string(const char* buf, size_t len) {    
+    return _json_internal_parse(buf, len);
 }
 
 JSON json_parse_file(const char* filename) {

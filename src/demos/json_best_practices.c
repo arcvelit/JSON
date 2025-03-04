@@ -21,8 +21,12 @@ int main()
     * that you must free later on with json_free(). Alloc methods transfer the 
     * ownership of the JSON object to you. 
     * 
-    * Moving a JSON to another JSON (say, using json_push()) also transfers the
-    * ownership of that wrapper. Freeing the array will free the object you pushed.
+    * If an object is part of a hierarchy, it will be freed when its parent is freed.
+    * For example, if you free an array, all members will be freed, too. This encourages 
+    * "allocating and letting the parent deal with it" to abstract memory management as 
+    * much as possible. 
+    * 
+    * For this reason, long-lasting references to child objects are not recommended.
     * 
     * Aggregation functions like json_reduce...() also make an allocation.
     * 
