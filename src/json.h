@@ -290,7 +290,7 @@ typedef struct {
 */
 
 /** 
- * -- Simplified context free grammar --
+ * ;; LL1 Context-free grammar
  * 
  * JSON -> nulllit | boollit | numlit | strlit
  * JSON -> lsqbr ARRAYBODY rsqbr | lbrace OBJECTBODY rbrace
