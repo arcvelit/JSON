@@ -19,7 +19,7 @@ Read the [json_best_practices.c](src/demos/json_best_practices.c) demo.
 | **Null**         | Null objects are allocated as `JSON` of type `JSON_NULL`, and their object field is `NULL`. |
 
 ### Parsing
-You can now parse JSON from strings and files. Refer to the [src/demos/json_parse.c](src/demos/json_parse.c) demo.
+You can now parse JSON from strings and files. Refer to the [src/demos/json_parse.c](src/demos/json_parse.c) demo. The library uses a lightweight LL1 top-down predictive parser. You can find the grammar in the declarations part of the header.
 
 ### User definable macros
 Capacities
@@ -66,10 +66,6 @@ Performance was not the utmost priority when designing this library. However, a 
 ![image](https://github.com/user-attachments/assets/13a9e99b-4d23-4ae3-b8fe-86e127a34958)
 
 [src/json_benchmark.c](src/demos/json_benchmark.c)
-
-## Nerd talk
-
-The library uses a lightweight LL1 top-down predictive parser. You can find the grammar in the declarations part of the header.
 
 ## TODO
 * Buffer small writes (performance)
