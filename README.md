@@ -74,10 +74,5 @@ Performance was not the utmost priority when designing this library. However, a 
 
 [src/json_benchmark.c](src/demos/json_benchmark.c)
 
-## TODO
-* Buffer small writes (performance)
-* Use hash map instead of array for key-value pairs (performance)
-* More built-ins for multi-objects (optional)
-
 ## Environment
 The source code should be **highly portable** and compatible with C99 and later standards.
