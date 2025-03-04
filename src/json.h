@@ -1631,6 +1631,7 @@ _json_ast* _lex_next_token(_json_lexer* lexer) {
 
     // EOF
     if (lexer->cursor >= lexer->tape_size) {
+        _json_update_lex_state(lexer, token, lexer->cursor, lexer->cursor);
         token->type = JSON_TOKEN_EOF;
         goto RETURN;
     }
