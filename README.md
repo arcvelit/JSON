@@ -9,23 +9,22 @@ by allowing primitives, objects with key-value pairs, and arrays of objects.
 
 ## Behaviour
 
-Read the `json_best_practices.c` demo.
+Read the [json_best_practices.c](src/demos/json_best_practices.c) demo.
 
 | **Category**     | **Description**  |
 |------------------|------------------|
 | **Wrappers**     | Everything is wrapped in the `JSON` type, including primitives. The API handles most of the runtime type checking. |
-| **Strings**      | All strings provided to the API must be null-terminated. The same is true for strings provided by the API. The API only accepts `const char *` for string arguments and makes a copy if stored in a JSON wrapper. |
+| **Strings**      | All strings provided to the API must be null-terminated. The same is true for the strings provided by the API. The API only accepts `const char *` for string arguments and makes a copy if stored in a JSON wrapper. |
 | **Numbers**      | All numbers are stored as `double` for simplicity. |
 | **Null**         | Null objects are allocated as `JSON` of type `JSON_NULL`, and their object field is `NULL`. |
 
 ### Parsing
-You can now parse JSON from strings and files. Refer to the demos.
+You can now parse JSON from strings and files. Refer to the [src/demos/json_parse.c](src/demos/json_parse.c)demo.
 
 ### User definable macros
 Capacities
 * `JSON_MULTIOBJECT_INITIAL_CAP` initial capacity of dynamic arrays and key-values (init: 4)
 * `JSON_ARENA_REGION_CAP` number of tokens per region for the parsing arena (init: 256)  
-<sub>increase for parsing big json files</sub>
 
 Debug
 * `JSON_FREE_DEBUG` logging deallocations of JSON wraps.
@@ -34,7 +33,7 @@ Debug
 * `JSON_LEXER_DEBUG` logging the type of JSON token that is lexed.
 
 ## Getting started
-Start by including the header. Since this is a stb-style library, you must define the `JSON_IMPLEMENTATION` directive.  
+First, include the header - since this is a stb-style library, you must define the `JSON_IMPLEMENTATION` directive for implementation. 
 
 Let's allocate an array and print the JSON wraps to the console.
 
@@ -59,14 +58,14 @@ int main() {
   return 0;
 }
 ```
-Follow the project demos in `[src/demos/](src/demos/)` for other examples.
+Follow the project demos in [src/demos/](src/demos/) for other examples.
 
 ## Performance
 Performance was not the utmost priority when designing this library. However, a small test was conducted using this 25Mb [large JSON file](https://github.com/json-iterator/test-data/blob/master/large-file.json). The file was parsed and dumped into a file with `-O3` GCC optimizations. Many small writes to files instead of buffering may impact performance.   
 
-![image](https://github.com/user-attachments/assets/12ae170e-209c-4b02-b101-04b1bf2b4ab6)
+![image](https://github.com/user-attachments/assets/13a9e99b-4d23-4ae3-b8fe-86e127a34958)
 
-<sub>`[src/json_benchmark.c](src/demos/json_benchmark.c)` demo</sub>
+[src/json_benchmark.c](src/demos/json_benchmark.c)
 
 ## TODO
 * Buffer small writes (performance)
