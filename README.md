@@ -43,6 +43,7 @@ Making copies of JSON through the API will create and return deep copies.
 
 ### Debug macros
 * The `__JSON_FREE_DEBUG` define instruction logs deallocations of JSON objects.
+* The `__JSON_ARENA_DEBUG` define instruction logs arena region growth.
 * The `__JSON_LEXER_DEBUG` define instruction logs the type of JSON token that is lexed.
 
 ## Getting started
@@ -74,13 +75,14 @@ int main() {
 Follow the project demos in `/src/demos/` for other examples.
 
 ## Performance
-Performance was not the utmost priority when designing this library. However, a small test was conducted using this 25Mb [large JSON file](https://github.com/json-iterator/test-data/blob/master/large-file.json). The API parsed the file and then dumped it into a file with `-O3` GCC optimizations. Many small writes to files instead of buffering, excessive allocation of tokens instead of using a token stream, and such, are suspected to be the root of performance issues.  
+Performance was not the utmost priority when designing this library. However, a small test was conducted using this 25Mb [large JSON file](https://github.com/json-iterator/test-data/blob/master/large-file.json). The file was parsed and dumped into a file with `-O3` GCC optimizations. Many small writes to files instead of buffering may impact performance.  
 
-![image](https://github.com/user-attachments/assets/5f4f35bf-72eb-4bf3-b178-8c617401229d)
+![image](https://github.com/user-attachments/assets/12ae170e-209c-4b02-b101-04b1bf2b4ab6)
 
 ## TODO
 * Replace recursion in writing, tokenizing, parsing (performance)
-* More builtins for multi-objects (optional)
+* User hash map instead of array for key-value pairs (performance)
+* More built-ins for multi-objects (optional)
 
 ## Environment
 The source code should be **highly portable** and compatible with C99 and later standards.
