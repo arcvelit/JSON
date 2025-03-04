@@ -1,7 +1,6 @@
 #define JSON_IMPLEMENTATION
 #include "../json.h" 
 
-
 int main()
 {
     // Write JSON objects to a file

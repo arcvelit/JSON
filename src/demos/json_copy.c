@@ -1,7 +1,6 @@
 #define JSON_IMPLEMENTATION
 #include "../json.h" 
 
-
 int main()
 {
     // Create a deep copy of a JSON

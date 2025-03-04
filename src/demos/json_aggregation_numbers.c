@@ -11,7 +11,6 @@ double addition(JSON json_wrap, double accumulator) {
     return accumulator + json_wrap->number->value;
 }
 
-
 int main()
 {
     // Use aggregation functions on JSON lists

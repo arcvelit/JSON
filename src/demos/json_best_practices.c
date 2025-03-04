@@ -1,7 +1,6 @@
 #define JSON_IMPLEMENTATION
 #include "../json.h" 
 
-
 int main()
 {
     /* 
@@ -21,6 +20,9 @@ int main()
     * Every time you call json_..._alloc(), there is a memory allocation made
     * that you must free later on with json_free(). Alloc methods transfer the 
     * ownership of the JSON object to you. 
+    * 
+    * Moving a JSON to another JSON (say, using json_push()) also transfers the
+    * ownership of that wrapper. Freeing the array will free the object you pushed.
     * 
     * Aggregation functions like json_reduce...() also make an allocation.
     * 

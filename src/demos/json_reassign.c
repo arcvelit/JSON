@@ -1,7 +1,6 @@
 #define JSON_IMPLEMENTATION
 #include "../json.h" 
 
-
 int main()
 {
     // Replace a JSON object by another while freeing

@@ -1,7 +1,6 @@
 #define JSON_IMPLEMENTATION
 #include "../json.h" 
 
-
 int main()
 {
     // Modify the value of JSON primitives

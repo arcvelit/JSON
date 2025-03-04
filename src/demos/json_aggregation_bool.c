@@ -11,7 +11,6 @@ bool some_false(JSON json_wrap, bool accumulator) {
     return accumulator || !json_wrap->boolean->value;
 }
 
-
 int main()
 {
     // Use aggregation functions on JSON lists
