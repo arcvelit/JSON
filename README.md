@@ -19,7 +19,7 @@ Read the [json_best_practices.c](src/demos/json_best_practices.c) demo.
 | **Null**         | Null objects are allocated as `JSON` of type `JSON_NULL`, and their object field is `NULL`. |
 
 ### Parsing
-You can now parse JSON from strings and files. Refer to the [src/demos/json_parse.c](src/demos/json_parse.c)demo.
+You can now parse JSON from strings and files. Refer to the [src/demos/json_parse.c](src/demos/json_parse.c) demo.
 
 ### User definable macros
 Capacities
