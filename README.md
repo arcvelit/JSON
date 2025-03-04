@@ -59,7 +59,13 @@ int main() {
   return 0;
 }
 ```
-Follow the project demos in [src/demos/](src/demos/) for other examples.
+Follow the [project demos](src/demos/) for other examples.
+
+### Applications
+You can integrate a simple JSON formatter. Build [jformat.c](src/demos/jformat.c) and on the terminal:
+```bash
+cat demos/data.json | jformat > formatted.json
+``` 
 
 ## Performance
 Performance was not the utmost priority when designing this library. However, a small test was conducted using this 25Mb [large JSON file](https://github.com/json-iterator/test-data/blob/master/large-file.json). The file was parsed and dumped into a file with `-O3` GCC optimizations. Many small writes to files instead of buffering may impact performance.   
