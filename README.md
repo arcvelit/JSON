@@ -67,6 +67,10 @@ Performance was not the utmost priority when designing this library. However, a 
 
 [src/json_benchmark.c](src/demos/json_benchmark.c)
 
+## Nerd talk
+
+The library uses a lightweight LL1 top-down predictive parser. You can find the grammar in the declarations part of the header.
+
 ## TODO
 * Buffer small writes (performance)
 * Use hash map instead of array for key-value pairs (performance)
