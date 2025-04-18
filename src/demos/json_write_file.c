@@ -25,7 +25,7 @@ int main()
     json_t obj = json_object_alloc();
     json_add_key_value(obj, "Louka", list);
     json_add_key_value(obj, "Razvan", object);
-    json_add_key_value(obj, "William", json_boolean_alloc(true));
+    json_add_key_value(obj, "William", json_boolean_alloc(JSON_TRUE));
     json_add_key_value(obj, "NULLS", list_nulls);
 
     // Print and free

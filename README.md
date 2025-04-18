@@ -16,8 +16,8 @@ Read the [json_best_practices.c](src/demos/json_best_practices.c) demo.
 | **Wrappers**     | Everything is wrapped in the `json_t` type, including primitives. The API handles most of the runtime type checking. |
 | **Strings**      | All strings provided to the API must be null-terminated. The same is true for the strings provided by the API. The API only accepts `const char *` for string arguments and makes a copy if stored in a JSON wrapper. |
 | **Numbers**      | All numbers are stored as `double` for simplicity. |
-| **Booleans**     | Booleans wrap around the `bool` type from `<stdbool.h>`. |
-| **Null**         | Null objects are allocated as `json_t` of type `JSON_NULL`, and their object field is `NULL`. |
+| **Booleans**     | Booleans wrap around the `JSON_BOOL` library type implemented as `unsigned char` |
+| **Null**         | Null objects are allocated as `json_t` of type `JSON_NULL_TYPE`, and their object field is `NULL`. |
 
 ### Parsing
 You can now parse JSON from strings and files. Refer to the [src/demos/json_parse.c](src/demos/json_parse.c) demo. The library uses a lightweight LL1 top-down predictive parser. You can find the grammar in the declarations part of the header.
@@ -47,7 +47,7 @@ int main() {
   json_t array = json_array_alloc();
   json_push(array, json_number_alloc(3));
   json_push(array, json_number_alloc(0.7525));
-  json_push(array, json_boolean_alloc(true));
+  json_push(array, json_boolean_alloc(JSON_TRUE));
   json_push(array, json_string_alloc("program"));
 
   Writer writer = {0};
@@ -75,4 +75,4 @@ Performance was not the utmost priority when designing this library. However, a 
 [src/json_benchmark.c](src/demos/json_benchmark.c)
 
 ## Environment
-The source code should be **highly portable** and compatible with C99 and later standards.
+The source code should be **highly portable** and compatible with C89 and later standards.

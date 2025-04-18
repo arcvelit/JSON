@@ -1,6 +1,8 @@
 #define JSON_IMPLEMENTATION
 #include "../json.h" 
 
+#include <string.h>
+
 #define STDIN_ACC_CAP  16*1024
 #define STDIN_BUFF_CAP    1024
 

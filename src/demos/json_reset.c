@@ -9,12 +9,12 @@ int main()
 
     json_t number1 = json_number_alloc(1);
     json_t number2 = json_number_alloc(69.420);
-    json_t boolean = json_boolean_alloc(true);
+    json_t boolean = json_boolean_alloc(JSON_TRUE);
     json_t string = json_string_alloc("Hello World!");
 
     json_number_reset(number1, 32);
     json_number_reset(number2, 15.45);
-    json_boolean_reset(boolean, false);
+    json_boolean_reset(boolean, JSON_FALSE);
     json_string_reset(string, "Merry Christmas!");
 
     json_push(list, number1);
