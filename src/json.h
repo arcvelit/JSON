@@ -1625,14 +1625,10 @@ JSON_BOOL _lex_punct(_json_lexer* lexer, _json_ast* token) {
         case '}': token->type = JSON_TOKEN_RBRACE; break;
         case ':': token->type = JSON_TOKEN_COLON; break;
         case ',': token->type = JSON_TOKEN_COMMA; break;
-        default: goto NOTFOUND;
+        default: return JSON_FALSE;
     }
-
     _json_update_lex_state(lexer, token, lexer->cursor + 1, lexer->cursor);
     return JSON_TRUE;
-
-NOTFOUND:
-    return JSON_FALSE;
 }
 
 JSON_BOOL _lex_bool_lit(_json_lexer* lexer, _json_ast* token) {
@@ -1758,7 +1754,8 @@ _json_ast* _lex_next_token(_json_lexer* lexer) {
     if (lexer->cursor >= lexer->tape_size) {
         _json_update_lex_state(lexer, token, lexer->cursor, lexer->cursor);
         token->type = JSON_TOKEN_EOF;
-        goto RETURN;
+        __LEXER_DEBUG_PRINT(token->type);
+        return token;    
     }
 
     // Lexer looking at a valid character
@@ -1773,7 +1770,6 @@ _json_ast* _lex_next_token(_json_lexer* lexer) {
         token->type = JSON_TOKEN_ERROR;
     }
 
-RETURN:
     __LEXER_DEBUG_PRINT(token->type);
     return token;
 }
