@@ -534,14 +534,14 @@ void json_foreach(json_t wrap, void (*action)(json_t));
  * @param  action action pointer
  * @return accumulated number
  */
-double json_reducenum(json_t wrap, double accumulator, double (*action)(json_t, double));
+double json_reduce_num(json_t wrap, double accumulator, double (*action)(json_t, double));
 /**
  * @brief  Accumulates a boolean action on an array
  * @param  wrap array wrapper
  * @param  action action pointer
  * @return accumulated boolean
  */
-JSON_BOOL json_reducebool(json_t wrap, JSON_BOOL accumulator, JSON_BOOL (*action)(json_t, JSON_BOOL));
+JSON_BOOL json_reduce_bool(json_t wrap, JSON_BOOL accumulator, JSON_BOOL (*action)(json_t, JSON_BOOL));
 
 /* Writing*/
 
@@ -1272,7 +1272,7 @@ void json_foreach(json_t array_wrap, void (*action)(json_t)) {
         action(ar->objects[i]);
 }
 
-double json_reducenum(json_t array_wrap, double accumulator, double (*action)(json_t, double)) {
+double json_reduce_num(json_t array_wrap, double accumulator, double (*action)(json_t, double)) {
     if (JSON_TYPE_GUARD(array_wrap, JSON_ARRAY_TYPE)) return 0.0;
     
     _Array ar = array_wrap->array;
@@ -1284,7 +1284,7 @@ double json_reducenum(json_t array_wrap, double accumulator, double (*action)(js
     return accumulator;
 }
 
-JSON_BOOL json_reducebool(json_t array_wrap, JSON_BOOL accumulator, JSON_BOOL (*action)(json_t, JSON_BOOL)) {
+JSON_BOOL json_reduce_bool(json_t array_wrap, JSON_BOOL accumulator, JSON_BOOL (*action)(json_t, JSON_BOOL)) {
     if (JSON_TYPE_GUARD(array_wrap, JSON_ARRAY_TYPE)) return JSON_FALSE;
     
     _Array ar = array_wrap->array;

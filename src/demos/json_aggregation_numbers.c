@@ -21,8 +21,8 @@ int main()
     json_push(list, json_number_alloc(3));
 
     // Get the product and sum of the array elements
-    double product = json_reducenum(list, 1, multiplication);
-    double sum = json_reducenum(list, 0, addition);
+    double product = json_reduce_num(list, 1, multiplication);
+    double sum = json_reduce_num(list, 0, addition);
 
     // Print and free
     printf("%g\n", product);

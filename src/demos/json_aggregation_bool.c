@@ -21,8 +21,8 @@ int main()
     json_push(list, json_boolean_alloc(JSON_FALSE));
 
     // See if all are true, one is false
-    JSON_BOOL forall = json_reducebool(list, JSON_TRUE, all);
-    JSON_BOOL exists = json_reducebool(list, JSON_FALSE, some_false);
+    JSON_BOOL forall = json_reduce_bool(list, JSON_TRUE, all);
+    JSON_BOOL exists = json_reduce_bool(list, JSON_FALSE, some_false);
 
     // Print and free
     printf("%s\n", JSON_BOOL_TO_STRING(forall));

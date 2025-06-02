@@ -28,8 +28,6 @@ int main()
     * 
     * For this reason, long-lasting references to child objects are not recommended.
     * 
-    * Aggregation functions like json_reduce...() also make an allocation.
-    * 
     * 
     * 3. Dangling pointers
     * 
