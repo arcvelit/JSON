@@ -1,5 +1,5 @@
 #define JSON_IMPLEMENTATION
-#include "../json.h" 
+#include <json.h>
 
 // All are true
 JSON_BOOL all(json_t json_wrap, JSON_BOOL accumulator) {

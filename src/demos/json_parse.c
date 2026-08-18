@@ -1,5 +1,5 @@
 #define JSON_IMPLEMENTATION
-#include "../json.h" 
+#include <json.h>
 
 int main()
 {

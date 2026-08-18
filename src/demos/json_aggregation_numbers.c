@@ -1,5 +1,5 @@
 #define JSON_IMPLEMENTATION
-#include "../json.h" 
+#include <json.h>
 
 // Product reduce
 double multiplication(json_t json_wrap, double accumulator) {

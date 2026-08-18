@@ -1,5 +1,5 @@
 #define JSON_IMPLEMENTATION
-#include "../json.h" 
+#include <json.h>
 
 #include <string.h>
 
@@ -16,7 +16,7 @@ int main(int argc, char** argv)
     --argc;
     ++argv;
     if (argc > 0) {
-        fprintf(stderr, "ERROR: too many arguments\n");
+        fprintf(stderr, "jformat.c:ERROR: too many arguments\n");
     }
 
     // Accumulate stdin
@@ -29,12 +29,12 @@ int main(int argc, char** argv)
         strcpy(&acc[size], buffer);
         size += buflen;
         if (size >= STDIN_ACC_CAP) {
-            fprintf(stderr, "ERROR: stdin buffer overflow (increase capacity)\n");
+            fprintf(stderr, "jformat.c:ERROR: stdin buffer overflow (increase capacity)\n");
             return EXIT_FAILURE;
         }
     }
     if (size == 0) {
-        fprintf(stderr, "ERROR: nothing passed to stdin\n");
+        fprintf(stderr, "jformat.c:ERROR: nothing passed to stdin\n");
         return EXIT_FAILURE;
     }
 
