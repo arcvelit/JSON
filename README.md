@@ -33,6 +33,15 @@ Debug
 * `JSON_ARENA_DEBUG` logging arena region growth.
 * `JSON_LEXER_DEBUG` logging the type of JSON token that is lexed.
 
+## Build and test
+From the project root, build the library and then run the test suite in one bash session:
+
+```bash
+cd src 
+make        # build the library
+make tests  # run the project test suite
+```
+
 ## Getting started
 First, include the header - since this is a stb-style library, you must define the `JSON_IMPLEMENTATION` directive for implementation. 
 
