@@ -435,15 +435,15 @@ void writer_file_close(Writer* writer);
  */
 void writer_writef(Writer* writer, const char* message, ...);
 
-/* Type guard */
+/* Type checks */
 
 /**
- * @brief Type guard for JSON wrapper
+ * @brief Type check with standard C semantics
  * @param wrap JSON wrapper
  * @param type type of wrapper
- * @return 1 for assert failed; 0 otherwise
+ * @return 1 if type matches; 0 otherwise
  */
-int JSON_TYPE_GUARD(json_t wrap, _json_type type);
+#define JSON_TYPE_CHECK(wrap, t) ((wrap) && (wrap)->type == (t))
 
 /* Allocations */
 
@@ -614,6 +614,19 @@ JSON_BOOL  json_in(json_t array_wrap, json_t wrap);
  * @note  The old valued is freed with json_free()
  */
 void  json_reassign(json_t* wrap_ptr, json_t new_wrap);
+
+/**
+ * @brief Gets the size of an array
+ * @param wrap array wrapper
+ * @return number of elements; 0 if not an array
+ */
+size_t json_array_size(json_t wrap);
+/**
+ * @brief Gets the number of keys in an object
+ * @param wrap object wrapper
+ * @return number of key-value pairs; 0 if not an object
+ */
+size_t json_object_keys_count(json_t wrap);
 
 /**
  * @brief  Null type equality
@@ -821,14 +834,8 @@ void writer_writef(Writer* writer, const char* message, ...) {
 _KeyValue* _json_internal_kv_multi_alloc(size_t size);
 json_t* _json_internal_object_multi_alloc(size_t size);
 
-/* Guards: truthy if assert failed */
-
-int JSON_TYPE_GUARD(json_t wrap, _json_type type) {
-    if (wrap && wrap->type == type) return 0;
-    
-    fprintf(stderr, "json.h:WARNING: Type assert raised\n");
-    return 1;
-}
+/* Type checks with standard C semantics (returns 1 on match, 0 on mismatch) */
+/* Implemented as macro: #define JSON_TYPE_CHECK(wrap, type) ((wrap) && (wrap)->type == (type)) */
 
 /* _String alloc and free */
 
@@ -1178,7 +1185,7 @@ json_t json_copy(json_t wrap) {
 */ 
 
 JSON_BOOL json_add_key_sv_value(json_t wrap, const _string_view sv, json_t value) {
-    if (JSON_TYPE_GUARD(wrap, JSON_OBJECT_TYPE)) return JSON_FALSE;
+    if (!JSON_TYPE_CHECK(wrap, JSON_OBJECT_TYPE)) return JSON_FALSE;
 
     _Object ob = wrap->object;
 
@@ -1202,7 +1209,7 @@ JSON_BOOL json_add_key_sv_value(json_t wrap, const _string_view sv, json_t value
 }
 
 JSON_BOOL json_add_key_value(json_t wrap, const char* key, json_t value) {
-    if (JSON_TYPE_GUARD(wrap, JSON_OBJECT_TYPE)) return JSON_FALSE;
+    if (!JSON_TYPE_CHECK(wrap, JSON_OBJECT_TYPE)) return JSON_FALSE;
 
     _Object ob = wrap->object;
 
@@ -1216,9 +1223,9 @@ JSON_BOOL json_add_key_value(json_t wrap, const char* key, json_t value) {
         size_t new_capacity = ob->_capacity * 2;
         _KeyValue* new_pairs = realloc(ob->pairs, new_capacity * sizeof(_KeyValue));
         JSON_MEM_ASSERT(new_pairs);
-
-        ob->_capacity = new_capacity;
+        
         ob->pairs = new_pairs;
+        ob->_capacity = new_capacity;
     }
 
     ob->pairs[ob->keys++] = _json_internal_kv_alloc(key, value);
@@ -1226,7 +1233,7 @@ JSON_BOOL json_add_key_value(json_t wrap, const char* key, json_t value) {
 }
 
 json_t* json_get(json_t wrap, const char* key) {
-    if (JSON_TYPE_GUARD(wrap, JSON_OBJECT_TYPE)) return NULL;
+    if (!JSON_TYPE_CHECK(wrap, JSON_OBJECT_TYPE)) return NULL;
 
     for (size_t i = 0; i < wrap->object->keys; i++)
         if (json_strcmp(key, wrap->object->pairs[i]->key) == 0)
@@ -1236,7 +1243,7 @@ json_t* json_get(json_t wrap, const char* key) {
 }
 
 JSON_BOOL json_in(json_t json_array, json_t json_wrap) {
-    if (JSON_TYPE_GUARD(json_array, JSON_ARRAY_TYPE)) return 0;
+    if (!JSON_TYPE_CHECK(json_array, JSON_ARRAY_TYPE)) return 0;
 
     for (size_t i = 0; i < json_array->array->size; i++) {
         if (json_eq(json_array->array->objects[i], json_wrap))
@@ -1254,7 +1261,7 @@ void json_reassign(json_t* wrap_ptr, json_t new_wrap) {
 }
 
 JSON_BOOL json_push(json_t array_wrap, json_t value) {
-    if (JSON_TYPE_GUARD(array_wrap, JSON_ARRAY_TYPE)) return JSON_FALSE;
+    if (!JSON_TYPE_CHECK(array_wrap, JSON_ARRAY_TYPE)) return JSON_FALSE;
 
     _Array ar = array_wrap->array;
 
@@ -1262,9 +1269,9 @@ JSON_BOOL json_push(json_t array_wrap, json_t value) {
         size_t new_capacity = ar->_capacity * 2;
         json_t* new_objects = realloc(ar->objects, new_capacity * sizeof(json_t));
         JSON_MEM_ASSERT(new_objects);
-
-        ar->_capacity = new_capacity;
+        
         ar->objects = new_objects;
+        ar->_capacity = new_capacity;
     }
 
     ar->objects[ar->size++] = value;
@@ -1272,19 +1279,29 @@ JSON_BOOL json_push(json_t array_wrap, json_t value) {
 }
 
 void json_foreach(json_t array_wrap, void (*action)(json_t)) {
-    if (JSON_TYPE_GUARD(array_wrap, JSON_ARRAY_TYPE)) return;
+    if (!JSON_TYPE_CHECK(array_wrap, JSON_ARRAY_TYPE)) return;
     
     _Array ar = array_wrap->array;
     for (size_t i = 0; i < ar->size; i++)
         action(ar->objects[i]);
 }
 
+size_t json_array_size(json_t wrap) {
+    if (!JSON_TYPE_CHECK(wrap, JSON_ARRAY_TYPE)) return 0;
+    return wrap->array->size;
+}
+
+size_t json_object_keys_count(json_t wrap) {
+    if (!JSON_TYPE_CHECK(wrap, JSON_OBJECT_TYPE)) return 0;
+    return wrap->object->keys;
+}
+
 double json_reduce_num(json_t array_wrap, double accumulator, double (*action)(json_t, double)) {
-    if (JSON_TYPE_GUARD(array_wrap, JSON_ARRAY_TYPE)) return 0.0;
+    if (!JSON_TYPE_CHECK(array_wrap, JSON_ARRAY_TYPE)) return 0.0;
     
     _Array ar = array_wrap->array;
     for (size_t i = 0; i < ar->size; i++) {
-        if (JSON_TYPE_GUARD(ar->objects[i], JSON_NUMBER_TYPE)) continue;
+        if (!JSON_TYPE_CHECK(ar->objects[i], JSON_NUMBER_TYPE)) continue;
         accumulator = action(ar->objects[i], accumulator);
     }
 
@@ -1292,11 +1309,11 @@ double json_reduce_num(json_t array_wrap, double accumulator, double (*action)(j
 }
 
 JSON_BOOL json_reduce_bool(json_t array_wrap, JSON_BOOL accumulator, JSON_BOOL (*action)(json_t, JSON_BOOL)) {
-    if (JSON_TYPE_GUARD(array_wrap, JSON_ARRAY_TYPE)) return JSON_FALSE;
+    if (!JSON_TYPE_CHECK(array_wrap, JSON_ARRAY_TYPE)) return JSON_FALSE;
     
     _Array ar = array_wrap->array;
     for (size_t i = 0; i < ar->size; i++) {
-        if (JSON_TYPE_GUARD(ar->objects[i], JSON_BOOLEAN_TYPE)) continue;
+        if (!JSON_TYPE_CHECK(ar->objects[i], JSON_BOOLEAN_TYPE)) continue;
         accumulator = action(ar->objects[i], accumulator);
     }
 
@@ -1381,19 +1398,19 @@ void _json_internal_boolean_reset(_Boolean boolean, JSON_BOOL value) {
 }
 
 void json_number_reset(json_t json_num, double value) {
-    if (JSON_TYPE_GUARD(json_num, JSON_NUMBER_TYPE)) return;
+    if (!JSON_TYPE_CHECK(json_num, JSON_NUMBER_TYPE)) return;
 
     _json_internal_number_reset(json_num->number, value);
 }
 
 void json_boolean_reset(json_t json_bool, JSON_BOOL value) {
-    if (JSON_TYPE_GUARD(json_bool, JSON_BOOLEAN_TYPE)) return;
+    if (!JSON_TYPE_CHECK(json_bool, JSON_BOOLEAN_TYPE)) return;
 
     _json_internal_boolean_reset(json_bool->boolean, value);
 }
 
 void json_string_reset(json_t json_str, const char* value) {
-    if (JSON_TYPE_GUARD(json_str, JSON_STRING_TYPE)) return;
+    if (!JSON_TYPE_CHECK(json_str, JSON_STRING_TYPE)) return;
 
     _json_internal_string_free(json_str->string);
     json_str->string = _json_internal_string_alloc(value);
@@ -1682,7 +1699,7 @@ JSON_BOOL _lex_num_lit(_json_lexer* lexer, _json_ast* token) {
 
     // Place in buffer to avoid copying string for \0
     char numlit[64];
-    const size_t dsize = begin - lookat;
+    const size_t dsize = lookat - begin;
     const size_t length = (dsize < sizeof(numlit)) ? dsize : sizeof(numlit);
     json_memcpy(numlit, &lexer->source[begin], length);
     numlit[length] = '\0';
