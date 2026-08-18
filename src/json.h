@@ -47,25 +47,25 @@
 #define JSON_BOOL_TO_STRING(b) ((b) ? __JSON_BOOLEAN_TRUE_PRINT_FMT : __JSON_BOOLEAN_FALSE_PRINT_FMT)
 
 #ifdef JSON_ALLOC_DEBUG
-#define __ALLOC_DEBUG_PRINT(MESSAGE) fprintf(stderr, "DEBUG: Allocated %s\n", (MESSAGE))
+#define __ALLOC_DEBUG_PRINT(MESSAGE) fprintf(stderr, "json.h:DEBUG: Allocated %s\n", (MESSAGE))
 #else
 #define __ALLOC_DEBUG_PRINT(MESSAGE)
 #endif // JSON_ALLOC_DEBUG
 
 #ifdef JSON_FREE_DEBUG
-#define __FREE_DEBUG_PRINT(MESSAGE) fprintf(stderr, "DEBUG: Freed %s\n", (MESSAGE))
+#define __FREE_DEBUG_PRINT(MESSAGE) fprintf(stderr, "json.h:DEBUG: Freed %s\n", (MESSAGE))
 #else
 #define __FREE_DEBUG_PRINT(MESSAGE)
 #endif // JSON_FREE_DEBUG
 
 #ifdef JSON_LEXER_DEBUG
-#define __LEXER_DEBUG_PRINT(TYPE) fprintf(stderr, "DEBUG: Lexed %s\n", _get_json_token_name((TYPE)));
+#define __LEXER_DEBUG_PRINT(TYPE) fprintf(stderr, "json.h:DEBUG: Lexed %s\n", _get_json_token_name((TYPE)));
 #else 
 #define __LEXER_DEBUG_PRINT(TYPE)
 #endif // JSON_LEXER_DEBUG
 
 #ifdef JSON_ARENA_DEBUG
-#define __ARENA_DEBUG_PRINT() fprintf(stderr, "DEBUG: Arena grew (size: %zu)\n", _json_global_arena.regions);
+#define __ARENA_DEBUG_PRINT() fprintf(stderr, "json.h:DEBUG: Arena grew (size: %zu)\n", _json_global_arena.regions);
 #else 
 #define __ARENA_DEBUG_PRINT()
 #endif // JSON_ARENA_DEBUG
@@ -81,7 +81,7 @@
 #define JSON_MEM_ASSERT(PTR)                           \
     do {                                               \
         if (!(PTR)) {                                  \
-            fprintf(stderr, "FATAL: Out of memory\n"); \
+            fprintf(stderr, "json.h:FATAL: Out of memory\n"); \
             exit(EXIT_FAILURE);                        \
         }                                              \
     } while (0)
@@ -367,7 +367,14 @@ typedef struct {
 
 char json_parse_error[128] = {0};
 
+#define JSON_RESET_PARSE_ERROR() do { json_parse_error[0] = '\0'; } while (0)
 #define JSON_GET_PARSE_ERROR() (json_parse_error[0] ? json_parse_error : "unexpected error")
+#define JSON_PRINT_PARSE_ERROR()                                      \
+    do {                                                             \
+        if (json_parse_error[0]) {                                    \
+            fprintf(stderr, "json.h:ERROR: %s\n", JSON_GET_PARSE_ERROR()); \
+        }                                                            \
+    } while (0)
 
 #define JSON_LOG_PARSE_ERROR(MESSAGE, TOKEN)           \
     do {                                               \
@@ -819,7 +826,7 @@ json_t* _json_internal_object_multi_alloc(size_t size);
 int JSON_TYPE_GUARD(json_t wrap, _json_type type) {
     if (wrap && wrap->type == type) return 0;
     
-    fprintf(stderr, "WARNING: Type assert raised\n");
+    fprintf(stderr, "json.h:WARNING: Type assert raised\n");
     return 1;
 }
 
@@ -1092,7 +1099,7 @@ void json_free(json_t wrap) {
             case JSON_ARRAY_TYPE:   _json_internal_array_free(wrap->array); break;
             case JSON_NULL_TYPE:    __FREE_DEBUG_PRINT("null"); break;
             default: {
-                fprintf(stderr, "WARNING: Free error\n");
+                fprintf(stderr, "json.h:WARNING: Free error\n");
                 return;
             }
         }
@@ -1158,7 +1165,7 @@ json_t json_copy(json_t wrap) {
             return json_ret;
         }
         default: {
-            fprintf(stderr, "WARNING: Copy error\n");
+            fprintf(stderr, "json.h:WARNING: Copy error\n");
             return NULL;
         }
     }
@@ -1522,7 +1529,7 @@ char* _read_file_to_cstr(const char* filename, size_t* len) {
 
     FILE *file = fopen(filename, "rb");
     if (!file) {
-        fprintf(stderr, "ERROR: Unable to read `%s`\n", filename);
+        fprintf(stderr, "json.h:ERROR: Unable to read `%s`\n", filename);
         return NULL;
     }
 
@@ -1535,7 +1542,7 @@ char* _read_file_to_cstr(const char* filename, size_t* len) {
 
     size_t bytesRead = fread(file_buf, sizeof(char), length, file);
     if (bytesRead != length) {
-        fprintf(stderr, "ERROR: File read mismatch `%s` (%zu/%zu bytes)\n", filename, bytesRead, length);
+        fprintf(stderr, "json.h:ERROR: File read mismatch `%s` (%zu/%zu bytes)\n", filename, bytesRead, length);
         free(file_buf);
         fclose(file);
         return NULL;
@@ -1973,7 +1980,7 @@ json_t _json_build_from_ast(const _json_ast* const base) {
             return object;
         }
         default: { // Unreachable
-            fprintf(stderr, "FATAL: invalid AST after parsing (library error)\n");
+            fprintf(stderr, "json.h:FATAL: invalid AST after parsing (library error)\n");
             exit(EXIT_FAILURE);
         }
     }
@@ -1982,8 +1989,9 @@ json_t _json_build_from_ast(const _json_ast* const base) {
 
 json_t _json_internal_parse(const char* buf, size_t len) {
     _json_global_arena_ensure_init();
+    JSON_RESET_PARSE_ERROR();
 
-    json_t wrap = NULL;
+    json_t wrap;
 
     _json_lexer lexer = {0};
     _json_lexer_init(&lexer, buf, len);
@@ -1997,7 +2005,7 @@ json_t _json_internal_parse(const char* buf, size_t len) {
     ) {
         wrap = _json_build_from_ast(base);
     } else {
-        fprintf(stderr, "ERROR: %s\n", JSON_GET_PARSE_ERROR());
+        wrap = NULL;
     }
     
     _json_global_arena_reset();
